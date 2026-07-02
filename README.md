@@ -173,16 +173,37 @@ Veja `.env.example` para a lista completa e comentada. Principais grupos:
 - **Banco**: Supabase (recomendado) ou PostgreSQL gerenciado.
 - Lembre de rodar `npx prisma migrate deploy` a cada deploy com mudança de schema.
 
-## Limitação conhecida deste ambiente de desenvolvimento
+## Deploy automático em VPS (GitHub Actions + Docker)
 
-Este código foi escrito em um ambiente sandbox cuja política de rede bloqueou
-o download dos binários nativos do Prisma (`prisma generate` falhou com
-`ECONNRESET` ao buscar o *query engine* em `binaries.prisma.sh`), então não
-foi possível rodar `npm run build` / `tsc --noEmit` com o client do Prisma
-gerado nem subir o servidor de desenvolvimento para teste end-to-end neste
-ambiente. O código foi escrito e revisado cuidadosamente contra o schema, mas
-**rode `npx prisma generate` e `npm run build` em um ambiente com acesso de
-rede completo antes do primeiro deploy** para validar a compilação.
+Fluxo recomendado para um VPS próprio (ex: Hostinger) com deploy contínuo:
+
+1. **Configuração inicial do servidor (uma única vez):** em um Ubuntu 22.04/24.04
+   limpo, como root, rode `scripts/bootstrap-vps.sh`. Ele instala Docker, configura
+   o firewall, clona o repositório em `/opt/confirmacaodeeventos`, cria o `.env`,
+   sobe os containers e roda as migrations.
+2. **(Opcional) HTTPS com domínio próprio:** `DOMAIN=seudominio.com EMAIL=voce@exemplo.com bash scripts/setup-nginx-ssl.sh`
+   configura Nginx como proxy reverso + certificado Let's Encrypt.
+3. **Deploy contínuo:** o workflow `.github/workflows/deploy.yml` conecta no VPS via
+   SSH a cada push na branch `main` e faz `git pull` + rebuild + `prisma migrate deploy`
+   automaticamente. Configure estes *secrets* no GitHub
+   (`Settings → Secrets and variables → Actions`):
+   - `VPS_HOST` — IP do servidor
+   - `VPS_USER` — usuário SSH (ex: `root`)
+   - `VPS_PORT` — porta SSH (normalmente `22`)
+   - `VPS_SSH_KEY` — chave **privada** do par usado pelo `bootstrap-vps.sh` para
+     autorizar o GitHub Actions (a chave pública já é adicionada automaticamente
+     ao `authorized_keys` do servidor pelo script)
+
+Depois desse setup, todo `git push` (ou merge) na branch `main` atualiza o
+servidor sozinho — não é mais necessário acessar o VPS manualmente.
+
+## Validação realizada
+
+Todo o código foi validado localmente antes da entrega: `tsc --noEmit`, `next lint`
+e `npm run build` rodaram limpos, e o fluxo completo (login → criar evento →
+importar/aprovar convidados → confirmar presença pela página pública →
+exportar CSV) foi testado de ponta a ponta com PostgreSQL real e navegador
+headless.
 
 ## Roadmap sugerido (fora do escopo desta entrega)
 

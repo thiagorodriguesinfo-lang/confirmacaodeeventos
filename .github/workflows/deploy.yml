@@ -1,0 +1,36 @@
+name: Deploy to VPS
+
+# Dispara a cada push na branch main (deploy continuo) e tambem permite
+# disparo manual pela aba "Actions" do GitHub, escolhendo a branch/tag.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch ou tag a fazer deploy"
+        required: false
+        default: "main"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH no VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script_stop: true
+          script: |
+            set -e
+            cd /opt/confirmacaodeeventos
+            git fetch origin
+            git checkout "${{ github.event.inputs.ref || 'main' }}"
+            git pull origin "${{ github.event.inputs.ref || 'main' }}"
+            docker compose build
+            docker compose up -d
+            docker compose exec -T app npx prisma migrate deploy
+            docker image prune -f
