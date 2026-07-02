@@ -1,0 +1,472 @@
+// ============================================================================
+// Prisma Schema — Plataforma de Confirmacao de Presenca (RSVP) via WhatsApp
+// ============================================================================
+// Convencoes:
+// - snake_case no banco (via @map), camelCase no client Prisma/TypeScript.
+// - Enums representam os "estados" de negocio (evita strings magicas).
+// - Todas as tabelas possuem createdAt/updatedAt para auditoria.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// USERS — administradores e operadores do painel
+// ----------------------------------------------------------------------------
+enum UserRole {
+  ADMIN
+  OPERATOR
+}
+
+model User {
+  id                String    @id @default(cuid())
+  name              String
+  email             String    @unique
+  passwordHash      String    @map("password_hash")
+  role              UserRole  @default(OPERATOR)
+  isActive          Boolean   @default(true) @map("is_active")
+  resetToken        String?   @unique @map("reset_token")
+  resetTokenExpires DateTime? @map("reset_token_expires")
+  lastLoginAt       DateTime? @map("last_login_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  events        Event[]        @relation("EventOwner")
+  imports       Import[]       @relation("ImportedBy")
+  dispatchJobs  DispatchJob[]  @relation("DispatchedBy")
+  notifications Notification[]
+
+  @@map("users")
+}
+
+// ----------------------------------------------------------------------------
+// EVENTS
+// ----------------------------------------------------------------------------
+enum EventStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  FINISHED
+  CANCELLED
+}
+
+model Event {
+  id              String      @id @default(cuid())
+  name            String
+  date            DateTime
+  time            String // HH:mm — mantido separado da data para exibicao livre
+  location        String
+  address         String?
+  description     String?     @db.Text
+  invitationImage String?     @map("invitation_image")
+  qrCodeUrl       String?     @map("qr_code_url")
+  googleMapsUrl   String?     @map("google_maps_url")
+  maxGuests       Int?        @map("max_guests")
+  status          EventStatus @default(DRAFT)
+
+  // Mensagens configuraveis (suportam variaveis {{nome}}, {{evento}}, {{data}}, {{hora}}, {{local}}, {{maps}})
+  defaultMessage   String  @default("") @map("default_message") @db.Text
+  thankYouMessage  String  @default("") @map("thank_you_message") @db.Text
+  reminderMessage  String  @default("") @map("reminder_message") @db.Text
+  declinedMessage  String  @default("") @map("declined_message") @db.Text
+
+  publicToken String @unique @default(cuid()) @map("public_token") // usado na pagina publica /convite/[token]
+
+  ownerId String @map("owner_id")
+  owner   User   @relation("EventOwner", fields: [ownerId], references: [id])
+
+  guests        Guest[]
+  imports       Import[]
+  dispatchJobs  DispatchJob[]
+  notifications Notification[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([ownerId])
+  @@index([status])
+  @@map("events")
+}
+
+// ----------------------------------------------------------------------------
+// IMPORTS — lotes de importacao (CSV, Excel, colar lista, WhatsApp, VCard)
+// ----------------------------------------------------------------------------
+enum ImportSource {
+  MANUAL
+  CSV
+  EXCEL
+  PASTE
+  WHATSAPP_FORWARD
+  VCARD
+}
+
+enum ImportStatus {
+  PENDING_REVIEW
+  APPROVED
+  PARTIALLY_APPROVED
+  REJECTED
+}
+
+model Import {
+  id     String       @id @default(cuid())
+  eventId String      @map("event_id")
+  event  Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  source        ImportSource
+  status        ImportStatus @default(PENDING_REVIEW)
+  fileName      String?      @map("file_name")
+  rawPayload    String?      @map("raw_payload") @db.Text // texto/vcard bruto recebido (auditoria)
+  senderWaId    String?      @map("sender_wa_id") // quem encaminhou os contatos pelo WhatsApp
+  senderName    String?      @map("sender_name")
+
+  totalContacts    Int @default(0) @map("total_contacts")
+  duplicateCount   Int @default(0) @map("duplicate_count")
+  approvedCount    Int @default(0) @map("approved_count")
+  rejectedCount    Int @default(0) @map("rejected_count")
+
+  importedById String? @map("imported_by_id")
+  importedBy   User?   @relation("ImportedBy", fields: [importedById], references: [id])
+
+  guests Guest[]
+  logs   ImportLog[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([eventId])
+  @@index([status])
+  @@map("imports")
+}
+
+// Cada linha/contato recebido dentro de um lote de importacao — permite
+// revisao, edicao e correcao ANTES de virar um Guest definitivo (fila de revisao).
+enum ImportLogStatus {
+  PENDING
+  APPROVED
+  EDITED
+  REJECTED
+  DUPLICATE
+}
+
+model ImportLog {
+  id       String @id @default(cuid())
+  importId String @map("import_id")
+  import   Import @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  rawName    String?         @map("raw_name")
+  rawPhone   String?         @map("raw_phone")
+  normalizedPhone String?    @map("normalized_phone")
+  contentType String?        @map("content_type") // text | vcard | contact_card
+  status      ImportLogStatus @default(PENDING)
+  errorReason String?        @map("error_reason")
+
+  resultingGuestId String? @unique @map("resulting_guest_id")
+  resultingGuest   Guest?  @relation(fields: [resultingGuestId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([importId])
+  @@index([status])
+  @@map("import_logs")
+}
+
+// ----------------------------------------------------------------------------
+// GUESTS
+// ----------------------------------------------------------------------------
+enum GuestStatus {
+  PENDING // ainda nao respondeu
+  SENT // convite enviado, aguardando resposta
+  CONFIRMED
+  DECLINED
+  NO_RESPONSE // esgotou tentativas / lembretes sem resposta
+}
+
+enum GuestOrigin {
+  MANUAL
+  CSV
+  EXCEL
+  PASTE
+  WHATSAPP_FORWARD
+  VCARD
+  PUBLIC_PAGE
+}
+
+// Espelha os estados da maquina de estados do chatbot (Modulo Chatbot)
+enum ChatbotStep {
+  NOT_STARTED
+  AWAITING_CONFIRMATION
+  AWAITING_PEOPLE
+  AWAITING_NAMES
+  AWAITING_AGES
+  COMPLETED
+  DECLINED
+}
+
+model Guest {
+  id      String @id @default(cuid())
+  eventId String @map("event_id")
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  name  String
+  phone String // E.164 normalizado, ex: +5521999999999
+
+  status            GuestStatus @default(PENDING)
+  confirmedCount    Int         @default(1) @map("confirmed_count") // qtd de pessoas confirmadas (titular + acompanhantes)
+  notes             String?     @map("notes") @db.Text
+  origin            GuestOrigin @default(MANUAL)
+  needsReview       Boolean     @default(false) @map("needs_review")
+  chatbotStep       ChatbotStep @default(NOT_STARTED) @map("chatbot_step")
+
+  sentAt     DateTime? @map("sent_at")
+  deliveredAt DateTime? @map("delivered_at")
+  readAt     DateTime? @map("read_at")
+  respondedAt DateTime? @map("responded_at")
+
+  importId String? @map("import_id")
+  import   Import? @relation(fields: [importId], references: [id])
+
+  companions    Companion[]
+  messages      Message[]
+  conversation  ConversationState?
+  importLog     ImportLog?
+  timelineEvents TimelineEvent[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([eventId, phone])
+  @@index([eventId, status])
+  @@index([phone])
+  @@map("guests")
+}
+
+// ----------------------------------------------------------------------------
+// COMPANIONS — acompanhantes informados durante o RSVP
+// ----------------------------------------------------------------------------
+model Companion {
+  id      String @id @default(cuid())
+  guestId String @map("guest_id")
+  guest   Guest  @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  name           String
+  age            Int?
+  responsibleFor String? @map("responsible_for") // texto livre (ex: "filho de Joao")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([guestId])
+  @@map("companions")
+}
+
+// ----------------------------------------------------------------------------
+// TIMELINE — historico de eventos do convidado (auditoria fina)
+// ----------------------------------------------------------------------------
+model TimelineEvent {
+  id      String @id @default(cuid())
+  guestId String @map("guest_id")
+  guest   Guest  @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  type    String // ex: IMPORTED, INVITE_SENT, DELIVERED, READ, REPLIED, CONFIRMED, DECLINED, REMINDER_SENT
+  payload Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([guestId])
+  @@map("timeline_events")
+}
+
+// ----------------------------------------------------------------------------
+// CONVERSATION STATE — maquina de estados do chatbot (1:1 com Guest)
+// ----------------------------------------------------------------------------
+model ConversationState {
+  id      String @id @default(cuid())
+  guestId String @unique @map("guest_id")
+  guest   Guest  @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  currentStep    ChatbotStep @default(NOT_STARTED) @map("current_step")
+  context        Json        @default("{}") // dados parciais coletados (qtd pessoas, nomes, idades em progresso)
+  lastMessageAt  DateTime?   @map("last_message_at")
+  attemptCount   Int         @default(0) @map("attempt_count") // tentativas de interpretar resposta invalida
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("conversation_states")
+}
+
+// ----------------------------------------------------------------------------
+// MESSAGES — todo envio/recebimento de mensagem (log de conversa)
+// ----------------------------------------------------------------------------
+enum MessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  TEMPLATE
+  BUTTONS
+  DOCUMENT
+  LOCATION
+  CONTACT
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  RECEIVED
+}
+
+model Message {
+  id      String @id @default(cuid())
+  guestId String @map("guest_id")
+  guest   Guest  @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  direction MessageDirection
+  type      MessageType
+  status    MessageStatus @default(QUEUED)
+  content   String        @db.Text
+  mediaUrl  String?       @map("media_url")
+
+  providerMessageId String? @unique @map("provider_message_id")
+  providerName      String? @map("provider_name") // "meta_cloud_api" | "evolution_api"
+  errorMessage      String? @map("error_message") @db.Text
+
+  sentAt      DateTime? @map("sent_at")
+  deliveredAt DateTime? @map("delivered_at")
+  readAt      DateTime? @map("read_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([guestId])
+  @@index([status])
+  @@map("messages")
+}
+
+// ----------------------------------------------------------------------------
+// WHATSAPP LOGS — log bruto de todo trafego (webhooks, envios, erros, retries)
+// ----------------------------------------------------------------------------
+enum WhatsappLogDirection {
+  INBOUND
+  OUTBOUND
+}
+
+model WhatsappLog {
+  id        String               @id @default(cuid())
+  direction WhatsappLogDirection
+  provider  String // "meta_cloud_api" | "evolution_api"
+  eventType String?              @map("event_type") // message, status, contacts, media, location
+  waId      String?              @map("wa_id")
+  payload   Json
+  success   Boolean              @default(true)
+  attempt   Int                  @default(1)
+  errorMessage String?           @map("error_message") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([waId])
+  @@index([direction])
+  @@map("whatsapp_logs")
+}
+
+// ----------------------------------------------------------------------------
+// DISPATCH JOBS — disparos em lote com controle de taxa (rate limit)
+// ----------------------------------------------------------------------------
+enum DispatchJobStatus {
+  QUEUED
+  RUNNING
+  PAUSED
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+model DispatchJob {
+  id      String @id @default(cuid())
+  eventId String @map("event_id")
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  status        DispatchJobStatus @default(QUEUED)
+  ratePerMinute Int               @default(20) @map("rate_per_minute")
+  filter        Json // criterios de selecao dos destinatarios (ex: { status: "PENDING" })
+
+  totalTargets Int @default(0) @map("total_targets")
+  sentCount    Int @default(0) @map("sent_count")
+  failedCount  Int @default(0) @map("failed_count")
+
+  startedAt   DateTime? @map("started_at")
+  finishedAt  DateTime? @map("finished_at")
+
+  createdById String? @map("created_by_id")
+  createdBy   User?   @relation("DispatchedBy", fields: [createdById], references: [id])
+
+  targets DispatchTarget[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([eventId])
+  @@index([status])
+  @@map("dispatch_jobs")
+}
+
+// Snapshot dos destinatarios de um job no momento da criacao — garante que
+// pausar/retomar/cancelar um disparo seja determinístico e nao dependa do
+// status atual (mutavel) do Guest.
+model DispatchTarget {
+  id            String      @id @default(cuid())
+  dispatchJobId String      @map("dispatch_job_id")
+  dispatchJob   DispatchJob @relation(fields: [dispatchJobId], references: [id], onDelete: Cascade)
+  guestId       String      @map("guest_id")
+
+  sent         Boolean   @default(false)
+  sentAt       DateTime? @map("sent_at")
+  errorMessage String?   @map("error_message")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([dispatchJobId, guestId])
+  @@index([dispatchJobId, sent])
+  @@map("dispatch_targets")
+}
+
+// ----------------------------------------------------------------------------
+// NOTIFICATIONS — avisos ao administrador (novo confirmado, recusa, etc.)
+// ----------------------------------------------------------------------------
+enum NotificationType {
+  NEW_CONFIRMATION
+  NEW_DECLINE
+  NEW_COMPANION
+  IMPORT_COMPLETED
+  DISPATCH_COMPLETED
+}
+
+model Notification {
+  id      String @id @default(cuid())
+  userId  String @map("user_id")
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId String? @map("event_id")
+  event   Event?  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  type    NotificationType
+  title   String
+  message String
+  read    Boolean @default(false)
+  payload Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, read])
+  @@map("notifications")
+}
