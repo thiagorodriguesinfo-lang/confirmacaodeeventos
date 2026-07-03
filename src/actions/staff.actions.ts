@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { prisma } from '@/infrastructure/database/prisma';
 import { container } from '@/infrastructure/container';
 import { ListGuestsUseCase } from '@/core/use-cases/guests/list-guests.use-case';
 import { ManuallyConfirmGuestUseCase } from '@/core/use-cases/guests/manually-confirm-guest.use-case';
@@ -65,6 +66,20 @@ export async function createGuestViaStaffTokenAction(staffToken: string, formDat
 
   revalidatePath(`/equipe/${staffToken}`);
   return { success: true, message: 'Convidado adicionado com sucesso' };
+}
+
+export async function deleteGuestViaStaffTokenAction(staffToken: string, guestId: string) {
+  const event = await requireEventByStaffToken(staffToken);
+
+  const guest = await container.guestRepository.findById(guestId);
+  if (!guest || guest.eventId !== event.id) {
+    return { success: false, message: 'Convidado não encontrado neste evento' };
+  }
+
+  await prisma.guest.delete({ where: { id: guestId } });
+
+  revalidatePath(`/equipe/${staffToken}`);
+  return { success: true, message: 'Convidado removido' };
 }
 
 export async function manuallyConfirmGuestViaStaffTokenAction(
