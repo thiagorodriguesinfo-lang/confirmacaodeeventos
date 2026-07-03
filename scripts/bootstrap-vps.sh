@@ -68,7 +68,7 @@ if [ -d "$DEPLOY_DIR/.git" ]; then
   cd "$DEPLOY_DIR"
   git fetch origin
   git checkout "$BRANCH"
-  git pull origin "$BRANCH"
+  git reset --hard "origin/$BRANCH"
 else
   git clone --branch "$BRANCH" "$REPO_URL" "$DEPLOY_DIR"
   cd "$DEPLOY_DIR"

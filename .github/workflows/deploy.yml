@@ -29,7 +29,7 @@ jobs:
             cd /opt/confirmacaodeeventos
             git fetch origin
             git checkout "${{ github.event.inputs.ref || 'main' }}"
-            git pull origin "${{ github.event.inputs.ref || 'main' }}"
+            git reset --hard "origin/${{ github.event.inputs.ref || 'main' }}"
             docker compose build
             docker compose up -d
             docker compose exec -T app npx --yes prisma@5.22.0 migrate deploy
