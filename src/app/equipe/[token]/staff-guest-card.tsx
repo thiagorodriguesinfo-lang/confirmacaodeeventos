@@ -1,8 +1,11 @@
 'use client';
 
-import { manuallyConfirmGuestViaStaffTokenAction } from '@/actions/staff.actions';
+import { useTransition } from 'react';
+import { Trash2 } from 'lucide-react';
+import { manuallyConfirmGuestViaStaffTokenAction, deleteGuestViaStaffTokenAction } from '@/actions/staff.actions';
 import { ConfirmationDialog } from '@/components/guests/confirmation-dialog';
 import { GuestStatusBadge } from '@/components/dashboard/guest-status-badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatPhone } from '@/lib/utils';
 
@@ -20,6 +23,15 @@ export function StaffGuestCard({
     companions: { name: string; age: number | null }[];
   };
 }) {
+  const [isPending, startTransition] = useTransition();
+
+  function handleDelete() {
+    if (!confirm(`Remover ${guest.name} da lista de convidados?`)) return;
+    startTransition(async () => {
+      await deleteGuestViaStaffTokenAction(staffToken, guest.id);
+    });
+  }
+
   return (
     <Card>
       <CardContent className="flex items-center justify-between gap-3 py-4">
@@ -37,13 +49,18 @@ export function StaffGuestCard({
           </div>
         </div>
 
-        <ConfirmationDialog
-          guestName={guest.name}
-          initialStatus={guest.status}
-          initialCompanions={guest.companions}
-          triggerLabel={guest.status === 'CONFIRMED' || guest.status === 'DECLINED' ? 'Editar' : 'Confirmar'}
-          onSubmit={(input) => manuallyConfirmGuestViaStaffTokenAction(staffToken, guest.id, input)}
-        />
+        <div className="flex items-center gap-1">
+          <ConfirmationDialog
+            guestName={guest.name}
+            initialStatus={guest.status}
+            initialCompanions={guest.companions}
+            triggerLabel={guest.status === 'CONFIRMED' || guest.status === 'DECLINED' ? 'Editar' : 'Confirmar'}
+            onSubmit={(input) => manuallyConfirmGuestViaStaffTokenAction(staffToken, guest.id, input)}
+          />
+          <Button variant="ghost" size="icon" disabled={isPending} onClick={handleDelete} aria-label="Remover convidado">
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
