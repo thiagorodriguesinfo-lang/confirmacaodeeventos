@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import type { EventStatus } from '@prisma/client';
 import type { CreateEventInput, EventRepository, UpdateEventInput } from '@/core/repositories/event.repository';
 import { prisma } from './prisma';
@@ -17,6 +18,14 @@ export class PrismaEventRepository implements EventRepository {
 
   findByPublicToken(token: string) {
     return prisma.event.findUnique({ where: { publicToken: token } });
+  }
+
+  findByStaffToken(token: string) {
+    return prisma.event.findUnique({ where: { staffToken: token } });
+  }
+
+  regenerateStaffToken(id: string) {
+    return prisma.event.update({ where: { id }, data: { staffToken: randomUUID() } });
   }
 
   list(filter?: { ownerId?: string; status?: EventStatus }) {

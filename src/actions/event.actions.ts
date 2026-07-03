@@ -84,6 +84,13 @@ export async function updateEventSettingsAction(eventId: string, formData: FormD
   return { success: true, message: 'Evento atualizado com sucesso' };
 }
 
+export async function regenerateStaffTokenAction(eventId: string) {
+  await requireSession();
+  await container.eventRepository.regenerateStaffToken(eventId);
+  revalidatePath(`/dashboard/events/${eventId}/settings`);
+  return { success: true, message: 'Novo link gerado — o link anterior deixou de funcionar' };
+}
+
 export async function listMyEventsAction() {
   await requireSession();
   // Operadores e administradores compartilham a mesma visao de eventos —

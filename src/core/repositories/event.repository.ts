@@ -29,6 +29,8 @@ export interface EventRepository {
   update(id: string, input: UpdateEventInput): Promise<Event>;
   findById(id: string): Promise<Event | null>;
   findByPublicToken(token: string): Promise<Event | null>;
+  findByStaffToken(token: string): Promise<Event | null>;
+  regenerateStaffToken(id: string): Promise<Event>;
   list(filter?: { ownerId?: string; status?: EventStatus }): Promise<Event[]>;
   delete(id: string): Promise<void>;
   countGuestsAggregate(eventId: string): Promise<Prisma.GuestGroupByOutputType[]>;

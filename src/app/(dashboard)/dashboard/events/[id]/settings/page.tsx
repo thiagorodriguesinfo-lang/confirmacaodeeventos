@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { container } from '@/infrastructure/container';
 import { SettingsForm } from './settings-form';
+import { StaffLinkCard } from './staff-link-card';
 
 export default async function EventSettingsPage({ params }: { params: { id: string } }) {
   const event = await container.eventRepository.findById(params.id);
@@ -12,6 +13,7 @@ export default async function EventSettingsPage({ params }: { params: { id: stri
         <h1 className="text-2xl font-semibold tracking-tight">Configurações do evento</h1>
         <p className="text-sm text-muted-foreground">Atualize dados e mensagens automáticas</p>
       </div>
+      <StaffLinkCard eventId={event.id} staffToken={event.staffToken} />
       <SettingsForm event={event} />
     </div>
   );

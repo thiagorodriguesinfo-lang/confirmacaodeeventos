@@ -77,6 +77,7 @@ model Event {
   declinedMessage  String  @default("") @map("declined_message") @db.Text
 
   publicToken String @unique @default(cuid()) @map("public_token") // usado na pagina publica /convite/[token]
+  staffToken  String @unique @default(cuid()) @map("staff_token") // usado na pagina da equipe /equipe/[token] (cadastro/confirmacao manual sem login)
 
   ownerId String @map("owner_id")
   owner   User   @relation("EventOwner", fields: [ownerId], references: [id])
@@ -196,6 +197,7 @@ enum GuestOrigin {
   WHATSAPP_FORWARD
   VCARD
   PUBLIC_PAGE
+  STAFF // cadastrado pela pagina da equipe (/equipe/[token]), sem login
 }
 
 // Espelha os estados da maquina de estados do chatbot (Modulo Chatbot)
