@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
-import { CalendarDays, LayoutDashboard, Users, Inbox, Send, Settings, PartyPopper } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { CalendarDays, LayoutDashboard, Users, Inbox, Send, Settings, PartyPopper, MessageCircle, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function useEventNavItems() {
@@ -23,6 +24,8 @@ function useEventNavItems() {
 export function Sidebar() {
   const pathname = usePathname();
   const eventNavItems = useEventNavItems();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'ADMIN';
 
   return (
     <aside className="hidden w-64 shrink-0 border-r bg-card md:flex md:flex-col">
@@ -59,6 +62,32 @@ export function Sidebar() {
                 {item.label}
               </Link>
             ))}
+          </div>
+        )}
+
+        {isAdmin && (
+          <div className="mt-6 space-y-1">
+            <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Administração</p>
+            <Link
+              href="/dashboard/users"
+              className={cn(
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent',
+                pathname === '/dashboard/users' && 'bg-accent text-accent-foreground',
+              )}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Usuários
+            </Link>
+            <Link
+              href="/dashboard/settings/whatsapp"
+              className={cn(
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent',
+                pathname === '/dashboard/settings/whatsapp' && 'bg-accent text-accent-foreground',
+              )}
+            >
+              <MessageCircle className="h-4 w-4" />
+              WhatsApp
+            </Link>
           </div>
         )}
       </nav>

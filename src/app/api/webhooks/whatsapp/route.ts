@@ -11,7 +11,7 @@ import { prisma } from '@/infrastructure/database/prisma';
  */
 
 export async function GET(req: NextRequest) {
-  const provider = getWhatsappProvider();
+  const provider = await getWhatsappProvider();
   if (!provider.verifyWebhookChallenge) return NextResponse.json({ error: 'Provider nao suporta verificacao' }, { status: 400 });
 
   const challenge = provider.verifyWebhookChallenge(req.nextUrl.searchParams);
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
-  const provider = getWhatsappProvider();
+  const provider = await getWhatsappProvider();
 
   if (provider.verifyWebhookSignature) {
     const signature = req.headers.get('x-hub-signature-256');

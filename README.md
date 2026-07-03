@@ -127,21 +127,39 @@ Veja `.env.example` para a lista completa e comentada. Principais grupos:
 - `DATABASE_URL` / `DIRECT_URL` — conexão PostgreSQL/Supabase
 - `NEXT_PUBLIC_SUPABASE_*` — usado para hospedar a imagem do convite (opcional; pode-se usar qualquer URL pública de imagem)
 - `NEXTAUTH_SECRET`, `JWT_SECRET` — segredos de autenticação
-- `WHATSAPP_PROVIDER` — `meta_cloud_api` ou `evolution_api`
-- `META_*` — credenciais da WhatsApp Cloud API
-- `EVOLUTION_*` — credenciais da Evolution API
+- `WHATSAPP_PROVIDER` — `meta_cloud_api` ou `evolution_api` (fallback; veja abaixo)
+- `META_*` — credenciais da WhatsApp Cloud API (fallback)
+- `EVOLUTION_*` — credenciais da Evolution API (fallback)
+
+## Tela de configuração do WhatsApp (recomendado)
+
+Em vez de editar `.env` direto no servidor, um administrador pode configurar o
+provedor de WhatsApp pelo próprio painel, em **Administração → WhatsApp**
+(`/dashboard/settings/whatsapp`):
+
+- Escolher o provedor (Meta Cloud API ou Evolution API) e preencher as
+  credenciais — gravadas no banco (`whatsapp_settings`), sem precisar de deploy.
+- Para Evolution API: clicar em **Conectar WhatsApp** exibe o QR Code de
+  pareamento na própria tela (a instância é criada automaticamente se ainda
+  não existir); o status de conexão é atualizado automaticamente até o
+  celular escanear o código.
+
+As variáveis `META_*` / `EVOLUTION_*` no `.env` continuam funcionando como
+**fallback**, usadas apenas se nada estiver salvo no painel — útil para quem
+prefere configurar via infraestrutura/CI.
 
 ## Configuração da Meta (WhatsApp Cloud API)
 
 1. Crie um app em [developers.facebook.com](https://developers.facebook.com) com o produto **WhatsApp**.
-2. Copie `Phone Number ID` e gere um token permanente (via System User) →
-   preencha `META_WHATSAPP_PHONE_NUMBER_ID` e `META_WHATSAPP_TOKEN`.
+2. Copie `Phone Number ID` e gere um token permanente (via System User).
 3. Em **Configuration → Webhook**, aponte para:
    `https://SEU_DOMINIO/api/webhooks/whatsapp`
-   com o **Verify Token** igual ao valor de `META_WEBHOOK_VERIFY_TOKEN`.
+   com o **Verify Token** igual ao token de verificação escolhido.
 4. Assine os campos `messages` no webhook.
-5. Copie o **App Secret** para `META_APP_SECRET` (usado para validar a assinatura `X-Hub-Signature-256`).
-6. Defina `WHATSAPP_PROVIDER=meta_cloud_api`.
+5. Copie o **App Secret** (usado para validar a assinatura `X-Hub-Signature-256`).
+6. Preencha esses dados no painel (`/dashboard/settings/whatsapp`) escolhendo o
+   provedor "WhatsApp Cloud API (Meta)" — ou, alternativamente, nas variáveis
+   `META_*` do `.env` com `WHATSAPP_PROVIDER=meta_cloud_api`.
 
 ## Configuração da Evolution API (open source)
 
@@ -155,11 +173,15 @@ deste projeto, para não acoplar o deploy do app a uma dependência externa opci
      atendai/evolution-api
    ```
    (veja a [documentação oficial](https://doc.evolution-api.com/v2/en/install/docker) para volumes persistentes e outras opções).
-2. Crie uma instância com o nome definido em `EVOLUTION_INSTANCE_NAME` e conecte via QR Code.
+2. No painel (`/dashboard/settings/whatsapp`), escolha "Evolution API",
+   preencha a URL, a API Key e um nome de instância, salve e clique em
+   **Conectar WhatsApp** para escanear o QR Code — a instância é criada
+   automaticamente se ainda não existir.
 3. Configure o webhook da instância para:
    `https://SEU_DOMINIO/api/webhooks/evolution`
-4. Preencha `EVOLUTION_API_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE_NAME`.
-5. Defina `WHATSAPP_PROVIDER=evolution_api`.
+4. Alternativamente, sem usar o painel: preencha `EVOLUTION_API_URL`,
+   `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE_NAME` no `.env` e defina
+   `WHATSAPP_PROVIDER=evolution_api`.
 
 > É esse número de WhatsApp (Meta ou Evolution) que deve ser usado para
 > **receber os contatos encaminhados** pelo administrador — o sistema

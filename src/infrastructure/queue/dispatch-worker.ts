@@ -20,7 +20,7 @@ import { intervalMsForRate, sleep } from '@/core/services/rate-limited-queue.ser
 const POLL_INTERVAL_MS = 5_000;
 
 async function processJob(jobId: string) {
-  const whatsapp = getWhatsappProvider();
+  const whatsapp = await getWhatsappProvider();
 
   await prisma.dispatchJob.update({
     where: { id: jobId },

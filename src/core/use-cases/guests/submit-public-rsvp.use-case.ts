@@ -86,7 +86,7 @@ export class SubmitPublicRsvpUseCase {
 
   private async trySendWhatsapp(to: string, message: string) {
     try {
-      const provider = getWhatsappProvider();
+      const provider = await getWhatsappProvider();
       await provider.sendText({ to, message });
     } catch (error) {
       // Falha ao notificar via WhatsApp nao deve impedir a confirmacao feita pela pagina publica.

@@ -470,3 +470,39 @@ model Notification {
   @@index([userId, read])
   @@map("notifications")
 }
+
+// ----------------------------------------------------------------------------
+// WHATSAPP SETTINGS — configuracao do provedor de WhatsApp via painel
+// (linha unica/singleton; substitui a necessidade de editar .env no servidor).
+// Se nao existir nenhuma linha, o factory cai de volta para as variaveis de
+// ambiente (comportamento original), mantendo compatibilidade.
+// ----------------------------------------------------------------------------
+model WhatsappSettings {
+  id String @id @default("singleton")
+
+  provider String @default("evolution_api") // "meta_cloud_api" | "evolution_api"
+
+  // Meta WhatsApp Cloud API
+  metaToken              String? @map("meta_token")
+  metaPhoneNumberId      String? @map("meta_phone_number_id")
+  metaBusinessAccountId  String? @map("meta_business_account_id")
+  metaWebhookVerifyToken String? @map("meta_webhook_verify_token")
+  metaAppSecret          String? @map("meta_app_secret")
+  metaGraphApiVersion    String? @default("v21.0") @map("meta_graph_api_version")
+
+  // Evolution API (open source / self-hosted)
+  evolutionApiUrl        String? @map("evolution_api_url")
+  evolutionApiKey        String? @map("evolution_api_key")
+  evolutionInstanceName  String? @map("evolution_instance_name")
+  evolutionWebhookSecret String? @map("evolution_webhook_secret")
+
+  // Estado da ultima verificacao de conexao (Evolution API)
+  connectionStatus    String?   @default("disconnected") @map("connection_status") // disconnected | connecting | connected
+  lastConnectionCheck DateTime? @map("last_connection_check")
+
+  updatedById String?  @map("updated_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("whatsapp_settings")
+}
