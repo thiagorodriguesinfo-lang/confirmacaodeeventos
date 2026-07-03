@@ -113,7 +113,7 @@ migrations e o seed:
 
 ```bash
 docker compose exec app npx --yes prisma@5.22.0 migrate deploy
-docker compose exec app npm run prisma:seed
+docker compose exec app npx --yes tsx prisma/seed.ts
 ```
 
 ## Variáveis de ambiente

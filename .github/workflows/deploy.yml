@@ -33,5 +33,5 @@ jobs:
             docker compose build
             docker compose up -d
             docker compose exec -T app npx --yes prisma@5.22.0 migrate deploy
-            docker compose exec -T app npm run prisma:seed
+            docker compose exec -T app npx --yes tsx prisma/seed.ts
             docker image prune -f
