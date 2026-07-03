@@ -37,7 +37,8 @@ export class ExportGuestsUseCase {
       return { buffer: this.toCsv(rows), contentType: 'text/csv; charset=utf-8', fileName: `${baseFileName}.csv` };
     }
     if (input.format === 'pdf') {
-      return { buffer: await this.toPdf(event.name, rows), contentType: 'application/pdf', fileName: `${baseFileName}.pdf` };
+      const title = input.order === 'buffet' ? `Lista de confirmados — ${event.name}` : `Lista de convidados — ${event.name}`;
+      return { buffer: await this.toPdf(title, rows), contentType: 'application/pdf', fileName: `${baseFileName}.pdf` };
     }
     return { buffer: await this.toXlsx(rows), contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', fileName: `${baseFileName}.xlsx` };
   }
@@ -109,7 +110,10 @@ export class ExportGuestsUseCase {
     return Buffer.from(arrayBuffer);
   }
 
-  private toPdf(eventName: string, rows: Record<string, string | number>[]): Promise<Buffer> {
+  /** Colunas que recebem largura dupla na tabela do PDF (nomes tendem a ser mais longos). */
+  private static readonly WIDE_COLUMNS = new Set(['Nome', 'Acompanhantes']);
+
+  private toPdf(title: string, rows: Record<string, string | number>[]): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const doc = new PDFDocument({ margin: 40, size: 'A4' });
       const chunks: Buffer[] = [];
@@ -117,22 +121,70 @@ export class ExportGuestsUseCase {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      doc.fontSize(18).text(`Lista de convidados — ${eventName}`, { align: 'center' });
+      doc.fontSize(18).text(title, { align: 'center' });
       doc.moveDown();
 
       if (rows.length === 0) {
         doc.fontSize(12).text('Nenhum convidado encontrado.');
       } else {
-        const headers = Object.keys(rows[0]!);
-        doc.fontSize(10);
-        for (const row of rows) {
-          const line = headers.map((h) => `${h}: ${row[h] ?? ''}`).join('  |  ');
-          doc.text(line);
-          doc.moveDown(0.3);
-        }
+        doc.fontSize(9);
+        this.drawTable(doc, rows);
       }
 
       doc.end();
     });
+  }
+
+  private drawTable(doc: PDFKit.PDFDocument, rows: Record<string, string | number>[]) {
+    const headers = Object.keys(rows[0]!);
+    const tableLeft = doc.page.margins.left;
+    const tableWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const units = headers.reduce((sum, h) => sum + (ExportGuestsUseCase.WIDE_COLUMNS.has(h) ? 2 : 1), 0);
+    const colWidths = headers.map((h) => ((ExportGuestsUseCase.WIDE_COLUMNS.has(h) ? 2 : 1) / units) * tableWidth);
+    const rowPadding = 6;
+    const bottomLimit = doc.page.height - doc.page.margins.bottom;
+
+    const drawHeaderRow = () => {
+      const y = doc.y;
+      doc.font('Helvetica-Bold').fontSize(9);
+      let x = tableLeft;
+      headers.forEach((h, i) => {
+        doc.text(h, x + 2, y, { width: colWidths[i]! - 4 });
+        x += colWidths[i]!;
+      });
+      const headerHeight = Math.max(...headers.map((h, i) => doc.heightOfString(h, { width: colWidths[i]! - 4 }))) + rowPadding;
+      doc
+        .moveTo(tableLeft, y + headerHeight - 2)
+        .lineTo(tableLeft + tableWidth, y + headerHeight - 2)
+        .strokeColor('#333333')
+        .stroke();
+      doc.y = y + headerHeight;
+      doc.font('Helvetica').fontSize(9);
+    };
+
+    drawHeaderRow();
+
+    for (const row of rows) {
+      const cellTexts = headers.map((h) => String(row[h] ?? ''));
+      const rowHeight = Math.max(...cellTexts.map((text, i) => doc.heightOfString(text, { width: colWidths[i]! - 4 }))) + rowPadding;
+
+      if (doc.y + rowHeight > bottomLimit) {
+        doc.addPage();
+        drawHeaderRow();
+      }
+
+      const y = doc.y;
+      let x = tableLeft;
+      cellTexts.forEach((text, i) => {
+        doc.text(text, x + 2, y, { width: colWidths[i]! - 4 });
+        x += colWidths[i]!;
+      });
+      doc
+        .moveTo(tableLeft, y + rowHeight - 2)
+        .lineTo(tableLeft + tableWidth, y + rowHeight - 2)
+        .strokeColor('#dddddd')
+        .stroke();
+      doc.y = y + rowHeight;
+    }
   }
 }

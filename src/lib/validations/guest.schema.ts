@@ -15,6 +15,19 @@ export const dispatchGuestsSchema = z.object({
   guestIds: z.array(z.string().cuid()).optional(),
 });
 
+export const manualConfirmationSchema = z.object({
+  confirmed: z.boolean(),
+  notifyWhatsapp: z.boolean().default(true),
+  companions: z
+    .array(
+      z.object({
+        name: z.string().min(1, 'Informe o nome do acompanhante'),
+        age: z.coerce.number().int().min(0).max(120).optional(),
+      }),
+    )
+    .default([]),
+});
+
 export const publicRsvpSchema = z.object({
   eventPublicToken: z.string(),
   name: z.string().min(2),

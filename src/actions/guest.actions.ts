@@ -6,8 +6,9 @@ import type { GuestOrigin, GuestStatus } from '@prisma/client';
 import { authOptions } from '@/lib/auth';
 import { container } from '@/infrastructure/container';
 import { ListGuestsUseCase } from '@/core/use-cases/guests/list-guests.use-case';
-import { manualGuestSchema } from '@/lib/validations/guest.schema';
+import { manualGuestSchema, manualConfirmationSchema } from '@/lib/validations/guest.schema';
 import { normalizePhone } from '@/core/services/phone-normalizer.service';
+import { ManuallyConfirmGuestUseCase } from '@/core/use-cases/guests/manually-confirm-guest.use-case';
 
 async function requireSession() {
   const session = await getServerSession(authOptions);
@@ -68,6 +69,28 @@ export async function updateGuestStatusAction(guestId: string, eventId: string, 
   await container.guestRepository.update(guestId, { status });
   await container.guestRepository.addTimelineEvent(guestId, 'STATUS_MANUALLY_UPDATED', { status });
   revalidatePath(`/dashboard/events/${eventId}/guests`);
+}
+
+export async function manuallyConfirmGuestAction(
+  guestId: string,
+  eventId: string,
+  input: { confirmed: boolean; notifyWhatsapp: boolean; companions: { name: string; age?: number }[] },
+) {
+  await requireSession();
+
+  const parsed = manualConfirmationSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, message: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
+  }
+
+  const useCase = new ManuallyConfirmGuestUseCase();
+  const result = await useCase.execute({ guestId, ...parsed.data });
+
+  revalidatePath(`/dashboard/events/${eventId}/guests`);
+  return {
+    success: true,
+    message: result.status === 'CONFIRMED' ? 'Presença confirmada manualmente' : 'Convidado marcado como recusado',
+  };
 }
 
 export async function deleteGuestAction(guestId: string, eventId: string) {

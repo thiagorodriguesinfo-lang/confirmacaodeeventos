@@ -64,13 +64,32 @@ export default async function EventGuestsPage({
                     <td className="px-4 py-3">
                       <GuestStatusBadge status={guest.status} />
                     </td>
-                    <td className="px-4 py-3">{guest.status === 'CONFIRMED' ? guest.confirmedCount : '-'}</td>
+                    <td className="px-4 py-3">
+                      {guest.status === 'CONFIRMED' ? (
+                        <div>
+                          <span className="font-medium">{guest.confirmedCount}</span>
+                          {guest.companions.length > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              {guest.companions.map((c) => (c.age !== null ? `${c.name} (${c.age})` : c.name)).join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">{guest.origin}</td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {guest.respondedAt ? new Date(guest.respondedAt).toLocaleString('pt-BR') : '-'}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <GuestRowActions guestId={guest.id} eventId={params.id} />
+                      <GuestRowActions
+                        guestId={guest.id}
+                        eventId={params.id}
+                        guestName={guest.name}
+                        status={guest.status}
+                        companions={guest.companions}
+                      />
                     </td>
                   </tr>
                 ))}
