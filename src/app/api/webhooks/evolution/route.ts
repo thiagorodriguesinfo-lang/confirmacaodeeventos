@@ -9,7 +9,7 @@ import { RouteIncomingMessageUseCase } from '@/core/use-cases/chatbot/route-inco
  */
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
-  const provider = getWhatsappProvider();
+  const provider = await getWhatsappProvider();
 
   if (provider.verifyWebhookSignature) {
     const signature = req.headers.get('x-webhook-secret') ?? req.headers.get('apikey');
