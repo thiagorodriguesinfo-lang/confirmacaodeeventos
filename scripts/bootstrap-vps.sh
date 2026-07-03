@@ -96,7 +96,7 @@ sleep 10
 
 echo "==> Rodando migrations e seed inicial..."
 docker compose exec -T app npx --yes prisma@5.22.0 migrate deploy
-docker compose exec -T app npm run prisma:seed || true
+docker compose exec -T app npx --yes tsx prisma/seed.ts || true
 
 echo
 echo "============================================================"
