@@ -32,5 +32,5 @@ jobs:
             git pull origin "${{ github.event.inputs.ref || 'main' }}"
             docker compose build
             docker compose up -d
-            docker compose exec -T app npx prisma migrate deploy
+            docker compose exec -T app npx --yes prisma@5.22.0 migrate deploy
             docker image prune -f
