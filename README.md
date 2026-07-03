@@ -112,9 +112,13 @@ separadamente — veja a seção abaixo). Depois do primeiro `up`, rode as
 migrations e o seed:
 
 ```bash
-docker compose exec app npx --yes prisma@5.22.0 migrate deploy
-docker compose exec app npx --yes tsx prisma/seed.ts
+docker compose exec dispatch-worker npx prisma migrate deploy
+docker compose exec dispatch-worker npx tsx prisma/seed.ts
 ```
+
+(usa o container `dispatch-worker`, não o `app` — ele copia o `node_modules`
+completo antes da poda do build `standalone` do Next.js, então tem
+`prisma`/`tsx`/`bcryptjs` disponíveis; o `app` não tem)
 
 ## Variáveis de ambiente
 
