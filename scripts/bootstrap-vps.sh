@@ -95,8 +95,11 @@ echo "==> Aguardando o Postgres ficar pronto..."
 sleep 10
 
 echo "==> Rodando migrations e seed inicial..."
-docker compose exec -T app npx --yes prisma@5.22.0 migrate deploy
-docker compose exec -T app npx --yes tsx prisma/seed.ts || true
+# Usa o container dispatch-worker (nao o app) porque ele copia o
+# node_modules completo antes da poda do build "standalone" do Next.js
+# — o container "app" nao tem prisma/tsx/bcryptjs disponiveis via CLI.
+docker compose exec -T dispatch-worker npx prisma migrate deploy
+docker compose exec -T dispatch-worker npx tsx prisma/seed.ts || true
 
 echo
 echo "============================================================"

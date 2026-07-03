@@ -32,6 +32,6 @@ jobs:
             git reset --hard "origin/${{ github.event.inputs.ref || 'main' }}"
             docker compose build
             docker compose up -d
-            docker compose exec -T app npx --yes prisma@5.22.0 migrate deploy
-            docker compose exec -T app npx --yes tsx prisma/seed.ts
+            docker compose exec -T dispatch-worker npx prisma migrate deploy
+            docker compose exec -T dispatch-worker npx tsx prisma/seed.ts
             docker image prune -f
