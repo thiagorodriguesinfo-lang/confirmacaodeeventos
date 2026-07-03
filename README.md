@@ -107,11 +107,12 @@ npm run worker:dispatch
 docker compose up -d --build
 ```
 
-Sobe: PostgreSQL, o app Next.js, o worker de disparo e (opcionalmente) uma
-instância da Evolution API. Depois do primeiro `up`, rode as migrations e o seed:
+Sobe: PostgreSQL, o app Next.js e o worker de disparo (a Evolution API roda
+separadamente — veja a seção abaixo). Depois do primeiro `up`, rode as
+migrations e o seed:
 
 ```bash
-docker compose exec app npx prisma migrate deploy
+docker compose exec app npx --yes prisma@5.22.0 migrate deploy
 docker compose exec app npm run prisma:seed
 ```
 
@@ -140,7 +141,16 @@ Veja `.env.example` para a lista completa e comentada. Principais grupos:
 
 ## Configuração da Evolution API (open source)
 
-1. Suba a Evolution API (via `docker-compose.yml` incluso, serviço `evolution-api`, ou uma instância própria).
+A Evolution API roda como um serviço separado (não faz parte do `docker-compose.yml`
+deste projeto, para não acoplar o deploy do app a uma dependência externa opcional).
+
+1. Suba sua própria instância, por exemplo:
+   ```bash
+   docker run -d --name evolution-api -p 8080:8080 \
+     -e AUTHENTICATION_API_KEY=defina-uma-chave-forte \
+     atendai/evolution-api
+   ```
+   (veja a [documentação oficial](https://doc.evolution-api.com/v2/en/install/docker) para volumes persistentes e outras opções).
 2. Crie uma instância com o nome definido em `EVOLUTION_INSTANCE_NAME` e conecte via QR Code.
 3. Configure o webhook da instância para:
    `https://SEU_DOMINIO/api/webhooks/evolution`
