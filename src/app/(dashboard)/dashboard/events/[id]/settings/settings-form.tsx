@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { InvitationImageUpload } from '@/components/events/invitation-image-upload';
 
 export function SettingsForm({ event }: { event: Event }) {
   const [isPending, startTransition] = useTransition();
@@ -57,10 +58,7 @@ export function SettingsForm({ event }: { event: Event }) {
             <Label htmlFor="googleMapsUrl">Link do Google Maps</Label>
             <Input id="googleMapsUrl" name="googleMapsUrl" defaultValue={event.googleMapsUrl ?? ''} />
           </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="invitationImage">URL da imagem do convite</Label>
-            <Input id="invitationImage" name="invitationImage" defaultValue={event.invitationImage ?? ''} />
-          </div>
+          <InvitationImageUpload defaultUrl={event.invitationImage} />
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="description">Descrição</Label>
             <Textarea id="description" name="description" rows={3} defaultValue={event.description ?? ''} />
