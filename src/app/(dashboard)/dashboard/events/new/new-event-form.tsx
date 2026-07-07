@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { InvitationImageUpload } from '@/components/events/invitation-image-upload';
 import {
   DEFAULT_DECLINED_MESSAGE,
   DEFAULT_INVITE_MESSAGE,
@@ -62,10 +63,7 @@ export function NewEventForm() {
             <Label htmlFor="googleMapsUrl">Link do Google Maps</Label>
             <Input id="googleMapsUrl" name="googleMapsUrl" placeholder="https://maps.google.com/..." />
           </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="invitationImage">URL da imagem do convite</Label>
-            <Input id="invitationImage" name="invitationImage" placeholder="https://.../convite.jpg" />
-          </div>
+          <InvitationImageUpload />
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="description">Descrição</Label>
             <Textarea id="description" name="description" rows={3} />

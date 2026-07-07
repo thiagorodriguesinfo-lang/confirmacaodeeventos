@@ -22,6 +22,10 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/public ./public
+# Pasta das imagens de convite enviadas pelo painel — precisa existir e ser
+# gravavel pelo usuario nextjs ANTES do volume ser montado, para que o Docker
+# herde essa permissao ao inicializar o volume nomeado (ver docker-compose.yml).
+RUN mkdir -p ./public/uploads/invitations && chown -R nextjs:nodejs ./public/uploads
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma

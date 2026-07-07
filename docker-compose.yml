@@ -26,6 +26,10 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/confirmacaodeeventos?schema=public
     ports:
       - '3000:3000'
+    volumes:
+      # Imagens de convite enviadas pelo painel — persistidas fora da imagem,
+      # senao seriam perdidas a cada novo deploy (rebuild recria o container).
+      - uploads_data:/app/public/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -50,3 +54,4 @@ services:
 volumes:
   postgres_data:
   baileys_auth:
+  uploads_data:
