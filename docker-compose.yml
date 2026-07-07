@@ -38,9 +38,15 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/confirmacaodeeventos?schema=public
+      # Sessao do WhatsApp embutido (Baileys) persistida em volume — o socket
+      # vive somente aqui, no worker. Sobrevive a reinicios sem reescanear o QR.
+      BAILEYS_AUTH_DIR: /app/baileys-auth
+    volumes:
+      - baileys_auth:/app/baileys-auth
     depends_on:
       postgres:
         condition: service_healthy
 
 volumes:
   postgres_data:
+  baileys_auth:

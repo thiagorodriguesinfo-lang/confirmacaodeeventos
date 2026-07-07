@@ -2,6 +2,7 @@ import { getWhatsappSettingsAction } from '@/actions/whatsapp-settings.actions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { WhatsappSettingsForm } from './whatsapp-settings-form';
 import { EvolutionConnectPanel } from './evolution-connect-panel';
+import { BaileysConnectPanel } from './baileys-connect-panel';
 
 export default async function WhatsappSettingsPage() {
   const settings = await getWhatsappSettingsAction();
@@ -34,6 +35,21 @@ export default async function WhatsappSettingsPage() {
             <EvolutionConnectPanel
               hasCredentials={Boolean(settings.evolutionApiUrl && settings.evolutionApiKey && settings.evolutionInstanceName)}
               connectionStatus={settings.connectionStatus}
+              lastConnectionCheck={settings.lastConnectionCheck}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {settings?.provider === 'baileys' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Conectar número (QR Code)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BaileysConnectPanel
+              connectionStatus={settings.connectionStatus}
+              qr={settings.baileysQr}
               lastConnectionCheck={settings.lastConnectionCheck}
             />
           </CardContent>

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const whatsappSettingsSchema = z
   .object({
-    provider: z.enum(['evolution_api', 'meta_cloud_api']),
+    provider: z.enum(['baileys', 'evolution_api', 'meta_cloud_api']),
     metaToken: z.string().optional(),
     metaPhoneNumberId: z.string().optional(),
     metaBusinessAccountId: z.string().optional(),

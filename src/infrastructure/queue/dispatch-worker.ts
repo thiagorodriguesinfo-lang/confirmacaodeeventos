@@ -16,8 +16,19 @@ import { prisma } from '@/infrastructure/database/prisma';
 import { getWhatsappProvider } from '@/infrastructure/whatsapp/whatsapp-provider.factory';
 import { renderTemplate } from '@/core/services/message-template.service';
 import { intervalMsForRate, sleep } from '@/core/services/rate-limited-queue.service';
+import { container } from '@/infrastructure/container';
+import { RouteIncomingMessageUseCase } from '@/core/use-cases/chatbot/route-incoming-message.use-case';
+import { BaileysProvider } from '@/infrastructure/whatsapp/baileys.provider';
+import { getBaileysStatus } from '@/infrastructure/whatsapp/baileys-runtime';
+import {
+  startBaileysHost,
+  forceBaileysConnect,
+  logoutBaileys,
+} from '@/infrastructure/whatsapp/baileys-connection.manager';
+import type { InboundMessage } from '@/infrastructure/whatsapp/whatsapp-provider.interface';
 
 const POLL_INTERVAL_MS = 5_000;
+const BAILEYS_LOOP_MS = 3_000;
 
 async function processJob(jobId: string) {
   const whatsapp = await getWhatsappProvider();
@@ -142,4 +153,90 @@ async function pollLoop() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Baileys embutido — este worker e o UNICO dono do socket do WhatsApp.
+// Recebe mensagens (chatbot/importacao), executa comandos do painel
+// (conectar/desconectar) e drena a fila de saida do processo web.
+// ---------------------------------------------------------------------------
+
+/** Roteia toda mensagem recebida pelo socket para o chatbot/importacao. */
+async function routeInbound(message: InboundMessage) {
+  const router = new RouteIncomingMessageUseCase(
+    container.guestRepository,
+    container.conversationRepository,
+    container.messageRepository,
+    container.importRepository,
+    new BaileysProvider(),
+  );
+  await router.execute(message);
+}
+
+/** Executa o pedido do painel (gravado em whatsapp_settings.baileysCommand). */
+async function processBaileysCommand(command: string | null) {
+  if (command === 'connect') {
+    await forceBaileysConnect();
+  } else if (command === 'disconnect') {
+    await logoutBaileys();
+  } else {
+    return;
+  }
+  await prisma.whatsappSettings.update({ where: { id: 'singleton' }, data: { baileysCommand: null } });
+}
+
+/** Envia as mensagens que o processo web deixou na fila (BaileysOutbox). */
+async function drainOutbox() {
+  if (getBaileysStatus() !== 'connected') return;
+  const provider = new BaileysProvider();
+  const pending = await prisma.baileysOutbox.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' }, take: 20 });
+
+  for (const row of pending) {
+    try {
+      const res = row.imageUrl
+        ? await provider.sendImage({ to: row.to, imageUrl: row.imageUrl, caption: row.caption ?? undefined })
+        : await provider.sendText({ to: row.to, message: row.text ?? '' });
+
+      // Se o socket caiu no meio, o provider re-enfileira (id "outbox:..."): desfaz
+      // a duplicata e para — tenta de novo no proximo ciclo, quando reconectar.
+      if (res.providerMessageId.startsWith('outbox:')) {
+        await prisma.baileysOutbox.delete({ where: { id: res.providerMessageId.slice(7) } }).catch(() => {});
+        break;
+      }
+
+      await prisma.baileysOutbox.update({
+        where: { id: row.id },
+        data: { status: 'SENT', providerMessageId: res.providerMessageId, sentAt: new Date() },
+      });
+    } catch (error) {
+      await prisma.baileysOutbox.update({
+        where: { id: row.id },
+        data: { status: 'FAILED', error: error instanceof Error ? error.message : 'Erro desconhecido' },
+      });
+    }
+    await sleep(1_500); // pequeno intervalo entre envios da fila
+  }
+}
+
+async function baileysLoop() {
+  let hostStarted = false;
+  while (true) {
+    try {
+      const settings = await prisma.whatsappSettings.findUnique({ where: { id: 'singleton' } });
+      if (settings?.provider === 'baileys') {
+        if (!hostStarted) {
+          await startBaileysHost({ onInbound: routeInbound });
+          hostStarted = true;
+          console.log('[dispatch-worker] Baileys host iniciado');
+        }
+        await processBaileysCommand(settings.baileysCommand);
+        await drainOutbox();
+      }
+      // ponytail: trocar de provider em runtime exige reiniciar o worker (raro).
+    } catch (error) {
+      console.error('[dispatch-worker] erro no loop do Baileys:', error);
+    }
+    await sleep(BAILEYS_LOOP_MS);
+  }
+}
+
 pollLoop();
+baileysLoop();
