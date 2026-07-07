@@ -1,9 +1,10 @@
 import { prisma } from '@/infrastructure/database/prisma';
+import { BaileysProvider } from './baileys.provider';
 import { EvolutionApiProvider } from './evolution-api.provider';
 import { MetaCloudApiProvider } from './meta-cloud-api.provider';
 import type { WhatsappProvider } from './whatsapp-provider.interface';
 
-export type WhatsappProviderName = 'meta_cloud_api' | 'evolution_api';
+export type WhatsappProviderName = 'meta_cloud_api' | 'evolution_api' | 'baileys';
 
 let testOverride: WhatsappProvider | null = null;
 
@@ -26,6 +27,11 @@ export async function getWhatsappProvider(): Promise<WhatsappProvider> {
 
   const settings = await prisma.whatsappSettings.findUnique({ where: { id: 'singleton' } });
   const providerName = (settings?.provider || process.env.WHATSAPP_PROVIDER || 'evolution_api') as WhatsappProviderName;
+
+  if (providerName === 'baileys') {
+    // Baileys embutido: sem credenciais. O socket vive no worker (baileys-connection.manager).
+    return new BaileysProvider();
+  }
 
   if (providerName === 'meta_cloud_api') {
     return new MetaCloudApiProvider({

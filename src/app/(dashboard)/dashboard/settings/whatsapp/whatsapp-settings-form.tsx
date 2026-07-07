@@ -30,10 +30,18 @@ export function WhatsappSettingsForm({ settings }: { settings: WhatsappSettings 
           onChange={(e) => setProvider(e.target.value as typeof provider)}
           className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
         >
+          <option value="baileys">WhatsApp embutido / grátis (via QR Code) — recomendado</option>
           <option value="evolution_api">Evolution API (self-hosted, via QR Code)</option>
           <option value="meta_cloud_api">WhatsApp Cloud API (Meta)</option>
         </select>
       </div>
+
+      {provider === 'baileys' && (
+        <p className="text-sm text-muted-foreground">
+          Não precisa de credenciais. Salve para habilitar o painel de conexão por QR Code abaixo. O número conecta direto no
+          sistema, sem serviço externo.
+        </p>
+      )}
 
       {provider === 'evolution_api' && (
         <div className="grid gap-4 sm:grid-cols-2">

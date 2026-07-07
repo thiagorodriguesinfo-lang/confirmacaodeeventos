@@ -10,6 +10,11 @@ import {
   disconnectEvolutionInstance,
   getEvolutionConnectionState,
 } from '@/core/services/evolution-connection.service';
+import {
+  getBaileysConnection,
+  requestBaileysConnect,
+  requestBaileysDisconnect,
+} from '@/core/services/baileys-connection.service';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -143,6 +148,41 @@ export async function disconnectEvolutionAction() {
       where: { id: 'singleton' },
       data: { connectionStatus: 'disconnected', lastConnectionCheck: new Date() },
     });
+    revalidatePath('/dashboard/settings/whatsapp');
+    return { success: true as const };
+  } catch (error) {
+    return { success: false as const, message: error instanceof Error ? error.message : 'Falha ao desconectar' };
+  }
+}
+
+// --- Baileys embutido (o worker mantem o socket; aqui so trocamos dados via DB) ---
+
+export async function connectBaileysAction() {
+  await requireAdmin();
+  try {
+    await requestBaileysConnect();
+    revalidatePath('/dashboard/settings/whatsapp');
+    const { status, qr } = await getBaileysConnection();
+    return { success: true as const, status, qr };
+  } catch (error) {
+    return { success: false as const, message: error instanceof Error ? error.message : 'Falha ao solicitar conexão' };
+  }
+}
+
+export async function checkBaileysConnectionAction() {
+  await requireAdmin();
+  try {
+    const { status, qr } = await getBaileysConnection();
+    return { success: true as const, status, qr };
+  } catch (error) {
+    return { success: false as const, message: error instanceof Error ? error.message : 'Falha ao verificar status' };
+  }
+}
+
+export async function disconnectBaileysAction() {
+  await requireAdmin();
+  try {
+    await requestBaileysDisconnect();
     revalidatePath('/dashboard/settings/whatsapp');
     return { success: true as const };
   } catch (error) {

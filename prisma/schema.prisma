@@ -482,7 +482,7 @@ model Notification {
 model WhatsappSettings {
   id String @id @default("singleton")
 
-  provider String @default("evolution_api") // "meta_cloud_api" | "evolution_api"
+  provider String @default("evolution_api") // "meta_cloud_api" | "evolution_api" | "baileys"
 
   // Meta WhatsApp Cloud API
   metaToken              String? @map("meta_token")
@@ -498,13 +498,40 @@ model WhatsappSettings {
   evolutionInstanceName  String? @map("evolution_instance_name")
   evolutionWebhookSecret String? @map("evolution_webhook_secret")
 
-  // Estado da ultima verificacao de conexao (Evolution API)
+  // Estado da ultima verificacao de conexao (Evolution API / Baileys)
   connectionStatus    String?   @default("disconnected") @map("connection_status") // disconnected | connecting | connected
   lastConnectionCheck DateTime? @map("last_connection_check")
+
+  // Baileys embutido (socket vive no worker; painel troca dados via banco)
+  baileysQr      String? @map("baileys_qr")      // data URI do QR atual, gravado pelo worker
+  baileysCommand String? @map("baileys_command") // "connect" | "disconnect" — pedido do painel ao worker
 
   updatedById String?  @map("updated_by_id")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("whatsapp_settings")
+}
+
+// ----------------------------------------------------------------------------
+// BAILEYS OUTBOX — fila de saida para o provider embutido (Baileys)
+// ----------------------------------------------------------------------------
+// O socket do Baileys vive apenas no processo do worker. Quando o processo web
+// (ex.: confirmacao via link publico, confirmacao manual pelo admin) precisa
+// enviar uma mensagem, ele grava aqui e o worker drena esta fila pelo socket.
+// Usa o Postgres que ja existe como canal — sem API/servico externo.
+model BaileysOutbox {
+  id                String    @id @default(cuid())
+  to                String // telefone em E.164 (+55...)
+  text              String?
+  imageUrl          String?   @map("image_url")
+  caption           String?
+  status            String    @default("PENDING") // PENDING | SENT | FAILED
+  providerMessageId String?   @map("provider_message_id")
+  error             String?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  sentAt            DateTime? @map("sent_at")
+
+  @@index([status])
+  @@map("baileys_outbox")
 }

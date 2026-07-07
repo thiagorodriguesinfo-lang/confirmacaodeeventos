@@ -35,6 +35,9 @@ next-env.d.ts
 # prisma
 prisma/dev.db
 
+# baileys — sessao do WhatsApp embutido (equivale ao login; nunca versionar)
+baileys-auth/
+
 # IDE
 .idea/
 .vscode/*

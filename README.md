@@ -127,7 +127,8 @@ Veja `.env.example` para a lista completa e comentada. Principais grupos:
 - `DATABASE_URL` / `DIRECT_URL` — conexão PostgreSQL/Supabase
 - `NEXT_PUBLIC_SUPABASE_*` — usado para hospedar a imagem do convite (opcional; pode-se usar qualquer URL pública de imagem)
 - `NEXTAUTH_SECRET`, `JWT_SECRET` — segredos de autenticação
-- `WHATSAPP_PROVIDER` — `meta_cloud_api` ou `evolution_api` (fallback; veja abaixo)
+- `WHATSAPP_PROVIDER` — `baileys` (embutido/grátis), `evolution_api` ou `meta_cloud_api` (fallback; veja abaixo)
+- `BAILEYS_AUTH_DIR` — pasta da sessão do WhatsApp embutido (padrão `./baileys-auth`)
 - `META_*` — credenciais da WhatsApp Cloud API (fallback)
 - `EVOLUTION_*` — credenciais da Evolution API (fallback)
 
@@ -137,8 +138,10 @@ Em vez de editar `.env` direto no servidor, um administrador pode configurar o
 provedor de WhatsApp pelo próprio painel, em **Administração → WhatsApp**
 (`/dashboard/settings/whatsapp`):
 
-- Escolher o provedor (Meta Cloud API ou Evolution API) e preencher as
-  credenciais — gravadas no banco (`whatsapp_settings`), sem precisar de deploy.
+- Escolher o provedor (WhatsApp embutido/Baileys, Evolution API ou Meta Cloud
+  API) e preencher as credenciais — gravadas no banco (`whatsapp_settings`), sem
+  precisar de deploy. O provider **Baileys não pede credenciais** (veja a seção
+  dedicada abaixo).
 - Para Evolution API: clicar em **Conectar WhatsApp** exibe o QR Code de
   pareamento na própria tela (a instância é criada automaticamente se ainda
   não existir); o status de conexão é atualizado automaticamente até o
@@ -147,6 +150,50 @@ provedor de WhatsApp pelo próprio painel, em **Administração → WhatsApp**
 As variáveis `META_*` / `EVOLUTION_*` no `.env` continuam funcionando como
 **fallback**, usadas apenas se nada estiver salvo no painel — útil para quem
 prefere configurar via infraestrutura/CI.
+
+## WhatsApp embutido (Baileys) — grátis, sem serviço externo
+
+Provider `baileys`: conecta como o WhatsApp Web via QR Code, **grátis**, sem API
+paga da Meta e **sem precisar rodar a Evolution API** à parte. O socket roda
+dentro do próprio sistema — no processo do **worker de disparo**.
+
+### Como ligar
+
+1. No painel **Administração → WhatsApp**, escolha **"WhatsApp embutido / grátis"**
+   e clique em **Salvar** (não pede credenciais). Ou defina `WHATSAPP_PROVIDER=baileys`.
+2. Garanta que o **worker está rodando** (`npm run worker:dispatch`, ou o container
+   `dispatch-worker` no Docker) — é ele que abre a conexão.
+3. Clique em **Conectar WhatsApp**. O worker gera o **QR Code**, que aparece na
+   tela; escaneie em WhatsApp → *Aparelhos conectados* → *Conectar um aparelho*.
+   O status muda para **Conectado** sozinho.
+
+A sessão fica salva em `BAILEYS_AUTH_DIR` (padrão `./baileys-auth`; no Docker é um
+volume no worker), então reconecta sozinho após reinícios — sem reescanear.
+
+### Como funciona por dentro (arquitetura)
+
+O sistema roda em **dois processos** (app web + worker), mas um socket Baileys só
+pode viver em **um**. Por isso:
+
+- **Worker = dono do socket.** Ele envia os disparos em massa, **recebe** as
+  mensagens (chatbot de confirmação e importação de contatos chegam pelos
+  eventos do socket, não por webhook) e publica **QR/status** na tabela
+  `whatsapp_settings`.
+- **Processo web** (confirmação via link público, confirmação manual pelo admin)
+  não tem o socket. Quando precisa enviar, grava na fila **`baileys_outbox`** e o
+  worker drena essa fila pelo socket. O canal entre os dois é o **próprio
+  Postgres** — nada de API externa.
+
+Arquivos principais: `infrastructure/whatsapp/baileys.provider.ts`,
+`baileys-connection.manager.ts` (só o worker importa — é onde o Baileys entra),
+`baileys-runtime.ts`, e o loop em `infrastructure/queue/dispatch-worker.ts`.
+
+> ⚠️ Trocar de provider (ex.: de `baileys` para outro) em runtime exige
+> **reiniciar o worker**.
+>
+> ⚠️ WhatsApp não-oficial pode ser bloqueado se usado para spam. Os disparos já
+> respeitam o rate limit por minuto configurado no job; comece devagar com número
+> novo.
 
 ## Configuração da Meta (WhatsApp Cloud API)
 
