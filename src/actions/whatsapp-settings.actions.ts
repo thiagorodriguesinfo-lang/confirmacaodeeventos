@@ -189,3 +189,39 @@ export async function disconnectBaileysAction() {
     return { success: false as const, message: error instanceof Error ? error.message : 'Falha ao desconectar' };
   }
 }
+
+/**
+ * Duas coisas podem representar "mensagens na fila" no sistema:
+ * 1. BaileysOutbox — usada quando o processo web precisa enviar uma
+ *    mensagem (ex: agradecimento apos confirmacao) mas o socket do
+ *    WhatsApp so existe no worker; fica registrada aqui ate o worker
+ *    drenar. Se o numero ficou desconectado por um tempo, se acumula.
+ * 2. DispatchJob ativo (QUEUED/RUNNING/PAUSED) — um disparo em massa que
+ *    ainda tem convidados por enviar.
+ */
+export async function getSendQueueStatusAction() {
+  await requireAdmin();
+  const [outboxPending, outboxFailed, activeJobs] = await Promise.all([
+    prisma.baileysOutbox.count({ where: { status: 'PENDING' } }),
+    prisma.baileysOutbox.count({ where: { status: 'FAILED' } }),
+    prisma.dispatchJob.findMany({
+      where: { status: { in: ['QUEUED', 'RUNNING', 'PAUSED'] } },
+      select: { id: true, status: true, totalTargets: true, sentCount: true, event: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' },
+    }),
+  ]);
+  return { outboxPending, outboxFailed, activeJobs };
+}
+
+export async function clearSendQueueAction() {
+  await requireAdmin();
+  const [outboxResult, jobsResult] = await Promise.all([
+    prisma.baileysOutbox.deleteMany({ where: { status: { in: ['PENDING', 'FAILED'] } } }),
+    prisma.dispatchJob.updateMany({
+      where: { status: { in: ['QUEUED', 'RUNNING', 'PAUSED'] } },
+      data: { status: 'CANCELLED', finishedAt: new Date() },
+    }),
+  ]);
+  revalidatePath('/dashboard/settings/whatsapp');
+  return { success: true as const, outboxCount: outboxResult.count, jobsCount: jobsResult.count };
+}

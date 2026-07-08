@@ -1,11 +1,13 @@
-import { getWhatsappSettingsAction } from '@/actions/whatsapp-settings.actions';
+import { getWhatsappSettingsAction, getSendQueueStatusAction } from '@/actions/whatsapp-settings.actions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { WhatsappSettingsForm } from './whatsapp-settings-form';
 import { EvolutionConnectPanel } from './evolution-connect-panel';
 import { BaileysConnectPanel } from './baileys-connect-panel';
+import { OutboxQueuePanel } from './outbox-queue-panel';
 
 export default async function WhatsappSettingsPage() {
   const settings = await getWhatsappSettingsAction();
+  const queueStatus = settings?.provider === 'baileys' ? await getSendQueueStatusAction() : null;
 
   return (
     <div className="space-y-6">
@@ -52,6 +54,13 @@ export default async function WhatsappSettingsPage() {
               qr={settings.baileysQr}
               lastConnectionCheck={settings.lastConnectionCheck}
             />
+            {queueStatus && (
+              <OutboxQueuePanel
+                outboxPending={queueStatus.outboxPending}
+                outboxFailed={queueStatus.outboxFailed}
+                activeJobs={queueStatus.activeJobs}
+              />
+            )}
           </CardContent>
         </Card>
       )}
