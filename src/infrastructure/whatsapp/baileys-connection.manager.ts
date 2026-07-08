@@ -1,4 +1,5 @@
-import { rm } from 'node:fs/promises';
+import { readdir, rm } from 'node:fs/promises';
+import path from 'node:path';
 import makeWASocket, { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
 import qrcode from 'qrcode';
 import pino from 'pino';
@@ -21,6 +22,19 @@ type InboundHandler = (message: InboundMessage) => Promise<unknown>;
 let sock: ReturnType<typeof makeWASocket> | null = null;
 let starting = false;
 let onInboundHandler: InboundHandler | null = null;
+
+/**
+ * Apaga o CONTEUDO de AUTH_DIR (arquivos de sessao), sem apagar a pasta em si.
+ * Em Docker, AUTH_DIR e o ponto de montagem do volume `baileys_auth` — o
+ * kernel nunca deixa fazer rmdir nele (EBUSY, "resource busy or locked"),
+ * mesmo vazio. Tentar apagar a pasta inteira derruba o processo com uma
+ * excecao nao tratada dentro do listener 'connection.update' (nao e await-ado
+ * por ninguem), o que reinicia o worker em loop infinito.
+ */
+async function clearAuthDir() {
+  const entries = await readdir(AUTH_DIR).catch(() => []);
+  await Promise.all(entries.map((entry) => rm(path.join(AUTH_DIR, entry), { recursive: true, force: true }).catch(() => {})));
+}
 
 async function patchSettings(data: { connectionStatus?: string; baileysQr?: string | null; baileysCommand?: string | null }) {
   await prisma.whatsappSettings.upsert({
@@ -70,30 +84,38 @@ export async function startBaileysHost(opts: { onInbound: InboundHandler }): Pro
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
-      const { connection, lastDisconnect, qr } = update;
+      // Listener nao e await-ado pelo Baileys — qualquer excecao aqui vira uma
+      // unhandled rejection que derruba o processo inteiro do worker (ja
+      // aconteceu: EBUSY ao apagar AUTH_DIR, e o Postgres pode ficar
+      // momentaneamente indisponivel). Nunca deixa escapar.
+      try {
+        const { connection, lastDisconnect, qr } = update;
 
-      if (qr) {
-        const dataUrl = await qrcode.toDataURL(qr);
-        await setStatus('connecting', dataUrl);
-      }
-
-      if (connection === 'open') {
-        await setStatus('connected', null);
-      }
-
-      if (connection === 'close') {
-        const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
-        const loggedOut = statusCode === DisconnectReason.loggedOut;
-        sock = null;
-        setBaileysSocket(null);
-        await setStatus('disconnected', loggedOut ? null : undefined);
-        if (!loggedOut && onInboundHandler) {
-          // queda de rede — reconecta mantendo a sessao
-          startBaileysHost({ onInbound: onInboundHandler });
-        } else if (loggedOut) {
-          // deslogado pelo celular — limpa a sessao para forcar novo QR
-          await rm(AUTH_DIR, { recursive: true, force: true });
+        if (qr) {
+          const dataUrl = await qrcode.toDataURL(qr);
+          await setStatus('connecting', dataUrl);
         }
+
+        if (connection === 'open') {
+          await setStatus('connected', null);
+        }
+
+        if (connection === 'close') {
+          const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
+          const loggedOut = statusCode === DisconnectReason.loggedOut;
+          sock = null;
+          setBaileysSocket(null);
+          await setStatus('disconnected', loggedOut ? null : undefined);
+          if (!loggedOut && onInboundHandler) {
+            // queda de rede — reconecta mantendo a sessao
+            startBaileysHost({ onInbound: onInboundHandler });
+          } else if (loggedOut) {
+            // deslogado pelo celular — limpa a sessao para forcar novo QR
+            await clearAuthDir();
+          }
+        }
+      } catch (error) {
+        console.error('[baileys] erro no listener connection.update:', error);
       }
     });
 
@@ -131,7 +153,7 @@ export async function logoutBaileys(): Promise<void> {
   }
   sock = null;
   setBaileysSocket(null);
-  await rm(AUTH_DIR, { recursive: true, force: true }).catch(() => {});
+  await clearAuthDir();
   await setStatus('disconnected', null);
 }
 
