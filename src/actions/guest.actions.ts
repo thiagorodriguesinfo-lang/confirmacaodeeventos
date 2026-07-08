@@ -9,6 +9,7 @@ import { ListGuestsUseCase } from '@/core/use-cases/guests/list-guests.use-case'
 import { manualGuestSchema, manualConfirmationSchema } from '@/lib/validations/guest.schema';
 import { normalizePhone } from '@/core/services/phone-normalizer.service';
 import { ManuallyConfirmGuestUseCase } from '@/core/use-cases/guests/manually-confirm-guest.use-case';
+import { SendInvitationToGuestUseCase } from '@/core/use-cases/guests/send-invitation-to-guest.use-case';
 
 async function requireSession() {
   const session = await getServerSession(authOptions);
@@ -91,6 +92,20 @@ export async function manuallyConfirmGuestAction(
     success: true,
     message: result.status === 'CONFIRMED' ? 'Presença confirmada manualmente' : 'Convidado marcado como recusado',
   };
+}
+
+export async function sendInvitationToGuestAction(guestId: string, eventId: string) {
+  await requireSession();
+
+  try {
+    const useCase = new SendInvitationToGuestUseCase();
+    await useCase.execute(guestId);
+    revalidatePath(`/dashboard/events/${eventId}/guests`);
+    return { success: true, message: 'Convite enviado com sucesso' };
+  } catch (error) {
+    console.error('[send-invitation-to-guest] falha ao enviar convite:', error);
+    return { success: false, message: error instanceof Error ? error.message : 'Falha ao enviar convite' };
+  }
 }
 
 export async function deleteGuestAction(guestId: string, eventId: string) {
