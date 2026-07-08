@@ -5,17 +5,20 @@ import { Send, Trash2 } from 'lucide-react';
 import { deleteGuestAction, sendInvitationToGuestAction } from '@/actions/guest.actions';
 import { Button } from '@/components/ui/button';
 import { ManualConfirmDialog } from './manual-confirm-dialog';
+import { EditGuestDialog } from './edit-guest-dialog';
 
 export function GuestRowActions({
   guestId,
   eventId,
   guestName,
+  guestPhone,
   status,
   companions,
 }: {
   guestId: string;
   eventId: string;
   guestName: string;
+  guestPhone: string;
   status: string;
   companions: { name: string; age: number | null }[];
 }) {
@@ -38,6 +41,7 @@ export function GuestRowActions({
   return (
     <div className="flex items-center justify-end gap-1">
       <ManualConfirmDialog guestId={guestId} eventId={eventId} guestName={guestName} initialStatus={status} initialCompanions={companions} />
+      <EditGuestDialog guestId={guestId} eventId={eventId} initialName={guestName} initialPhone={guestPhone} />
       <Button variant="ghost" size="icon" disabled={isSending} onClick={handleSendInvitation} aria-label="Enviar convite">
         <Send className="h-4 w-4" />
       </Button>

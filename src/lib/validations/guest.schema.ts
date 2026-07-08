@@ -8,6 +8,11 @@ export const manualGuestSchema = z.object({
 
 export type ManualGuestSchema = z.infer<typeof manualGuestSchema>;
 
+export const editGuestSchema = z.object({
+  name: z.string().min(2, 'Informe o nome'),
+  phone: z.string().min(8, 'Informe um telefone valido'),
+});
+
 export const dispatchGuestsSchema = z.object({
   eventId: z.string().cuid(),
   ratePerMinute: z.coerce.number().int().min(1).max(1000),
