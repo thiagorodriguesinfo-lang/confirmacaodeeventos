@@ -13,7 +13,7 @@ set -euo pipefail
 # ==============================================================================
 
 DOMAIN="${DOMAIN:?Defina a variavel DOMAIN, ex: DOMAIN=meudominio.com EMAIL=voce@exemplo.com bash setup-nginx-ssl.sh}"
-EMAIL="${EMAIL:?Defina a variavel EMAIL para o cadastro no Let's Encrypt}"
+EMAIL="${EMAIL:?Defina a variavel EMAIL para o cadastro no Lets Encrypt}"
 APP_PORT="${APP_PORT:-3000}"
 
 if [ "$(id -u)" -ne 0 ]; then
