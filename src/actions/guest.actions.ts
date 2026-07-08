@@ -6,7 +6,7 @@ import type { GuestOrigin, GuestStatus } from '@prisma/client';
 import { authOptions } from '@/lib/auth';
 import { container } from '@/infrastructure/container';
 import { ListGuestsUseCase } from '@/core/use-cases/guests/list-guests.use-case';
-import { manualGuestSchema, manualConfirmationSchema } from '@/lib/validations/guest.schema';
+import { manualGuestSchema, manualConfirmationSchema, editGuestSchema } from '@/lib/validations/guest.schema';
 import { normalizePhone } from '@/core/services/phone-normalizer.service';
 import { ManuallyConfirmGuestUseCase } from '@/core/use-cases/guests/manually-confirm-guest.use-case';
 import { SendInvitationToGuestUseCase } from '@/core/use-cases/guests/send-invitation-to-guest.use-case';
@@ -92,6 +92,30 @@ export async function manuallyConfirmGuestAction(
     success: true,
     message: result.status === 'CONFIRMED' ? 'Presença confirmada manualmente' : 'Convidado marcado como recusado',
   };
+}
+
+export async function updateGuestAction(guestId: string, eventId: string, input: { name: string; phone: string }) {
+  await requireSession();
+
+  const parsed = editGuestSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, message: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
+  }
+
+  const normalizedPhone = normalizePhone(parsed.data.phone);
+  if (!normalizedPhone) {
+    return { success: false, message: 'Telefone inválido' };
+  }
+
+  const existing = await container.guestRepository.findByEventAndPhone(eventId, normalizedPhone);
+  if (existing && existing.id !== guestId) {
+    return { success: false, message: 'Já existe um convidado com esse telefone neste evento' };
+  }
+
+  await container.guestRepository.update(guestId, { name: parsed.data.name, phone: normalizedPhone });
+
+  revalidatePath(`/dashboard/events/${eventId}/guests`);
+  return { success: true, message: 'Convidado atualizado com sucesso' };
 }
 
 export async function sendInvitationToGuestAction(guestId: string, eventId: string) {

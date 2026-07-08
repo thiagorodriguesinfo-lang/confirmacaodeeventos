@@ -87,6 +87,7 @@ export default async function EventGuestsPage({
                         guestId={guest.id}
                         eventId={params.id}
                         guestName={guest.name}
+                        guestPhone={guest.phone}
                         status={guest.status}
                         companions={guest.companions}
                       />
