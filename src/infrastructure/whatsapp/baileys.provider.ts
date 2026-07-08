@@ -31,6 +31,27 @@ export class BaileysProvider implements WhatsappProvider {
     return getBaileysStatus() === 'connected' && getBaileysSocket() !== null;
   }
 
+  /**
+   * O Baileys roda no processo do worker e baixa a midia ele mesmo (via
+   * HTTP) antes de enviar. Imagens de convite enviadas pelo painel apontam
+   * para o proprio host (ex: http://SEU_IP:3000/uploads/...) — util para o
+   * navegador e para provedores externos (Meta/Evolution), mas o worker,
+   * rodando no mesmo host Docker, trava tentando sair pela internet e
+   * voltar pelo IP publico (hairpin NAT, comum em VPS). Reescreve so esse
+   * caso para o nome do servico interno do Docker Compose, que nao tem
+   * esse problema.
+   */
+  private toFetchableUrl(url: string): string {
+    try {
+      const parsed = new URL(url);
+      if (!parsed.pathname.startsWith('/uploads/')) return url;
+      const internalBase = process.env.INTERNAL_APP_URL || 'http://app:3000';
+      return new URL(parsed.pathname + parsed.search, internalBase).toString();
+    } catch {
+      return url;
+    }
+  }
+
   private async enqueue(data: { to: string; text?: string; imageUrl?: string; caption?: string }): Promise<SendResult> {
     const row = await prisma.baileysOutbox.create({ data });
     return { providerMessageId: `outbox:${row.id}` };
@@ -45,7 +66,7 @@ export class BaileysProvider implements WhatsappProvider {
   async sendImage(input: SendImageInput): Promise<SendResult> {
     if (!this.canSendNow()) return this.enqueue({ to: input.to, imageUrl: input.imageUrl, caption: input.caption });
     const res = await getBaileysSocket()!.sendMessage(this.toJid(input.to), {
-      image: { url: input.imageUrl },
+      image: { url: this.toFetchableUrl(input.imageUrl) },
       caption: input.caption,
     });
     return { providerMessageId: res?.key?.id ?? '', raw: res };
