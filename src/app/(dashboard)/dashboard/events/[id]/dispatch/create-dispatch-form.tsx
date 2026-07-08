@@ -11,6 +11,7 @@ const RATE_PRESETS = [20, 50, 100];
 const STATUS_OPTIONS = [
   { value: 'PENDING', label: 'Pendentes' },
   { value: 'NO_RESPONSE', label: 'Sem resposta' },
+  { value: 'SENT', label: 'Já enviados (reenviar)' },
 ];
 
 export function CreateDispatchForm({ eventId }: { eventId: string }) {
