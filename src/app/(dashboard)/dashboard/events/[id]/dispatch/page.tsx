@@ -4,6 +4,7 @@ import { listDispatchJobsAction } from '@/actions/dispatch.actions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CreateDispatchForm } from './create-dispatch-form';
 import { DispatchJobCard } from './dispatch-job-card';
+import { ResetDispatchButton } from './reset-dispatch-button';
 
 export default async function DispatchPage({ params }: { params: { id: string } }) {
   const event = await container.eventRepository.findById(params.id);
@@ -24,8 +25,9 @@ export default async function DispatchPage({ params }: { params: { id: string } 
         <CardHeader>
           <CardTitle>Novo disparo</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <CreateDispatchForm eventId={params.id} />
+          <ResetDispatchButton eventId={params.id} />
         </CardContent>
       </Card>
 

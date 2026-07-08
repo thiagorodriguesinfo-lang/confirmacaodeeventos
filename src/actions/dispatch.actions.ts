@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { CreateDispatchJobUseCase } from '@/core/use-cases/dispatch/create-dispatch-job.use-case';
 import { ControlDispatchJobUseCase, type DispatchControlAction } from '@/core/use-cases/dispatch/control-dispatch-job.use-case';
+import { ResetDispatchStatusUseCase } from '@/core/use-cases/dispatch/reset-dispatch-status.use-case';
 import { dispatchGuestsSchema } from '@/lib/validations/guest.schema';
 import { prisma } from '@/infrastructure/database/prisma';
 
@@ -48,4 +49,13 @@ export async function controlDispatchJobAction(jobId: string, eventId: string, a
 export async function listDispatchJobsAction(eventId: string) {
   await requireSession();
   return prisma.dispatchJob.findMany({ where: { eventId }, orderBy: { createdAt: 'desc' } });
+}
+
+export async function resetDispatchStatusAction(eventId: string) {
+  await requireSession();
+  const useCase = new ResetDispatchStatusUseCase();
+  const result = await useCase.execute(eventId);
+  revalidatePath(`/dashboard/events/${eventId}/guests`);
+  revalidatePath(`/dashboard/events/${eventId}/dispatch`);
+  return { success: true, message: `${result.count} convidado(s) voltaram para "pendente" e já podem ser reenviados.` };
 }
