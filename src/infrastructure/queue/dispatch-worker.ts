@@ -15,7 +15,7 @@
 import { prisma } from '@/infrastructure/database/prisma';
 import { getWhatsappProvider } from '@/infrastructure/whatsapp/whatsapp-provider.factory';
 import { renderTemplate } from '@/core/services/message-template.service';
-import { intervalMsForRate, sleep } from '@/core/services/rate-limited-queue.service';
+import { cooldownMs, jitteredIntervalMs, shouldTakeCooldown, sleep } from '@/core/services/rate-limited-queue.service';
 import { container } from '@/infrastructure/container';
 import { RouteIncomingMessageUseCase } from '@/core/use-cases/chatbot/route-incoming-message.use-case';
 import { BaileysProvider } from '@/infrastructure/whatsapp/baileys.provider';
@@ -38,11 +38,24 @@ async function processJob(jobId: string) {
     data: { status: 'RUNNING', startedAt: new Date() },
   });
 
+  let sentInBatch = 0;
+
   while (true) {
     const job = await prisma.dispatchJob.findUniqueOrThrow({ where: { id: jobId } });
 
     if (job.status === 'PAUSED' || job.status === 'CANCELLED') {
       console.log(`[dispatch-worker] job ${jobId} ${job.status.toLowerCase()}, parando`);
+      return;
+    }
+
+    // O WhatsApp embutido (Baileys) pode cair no meio do disparo (numero
+    // desconectado/banido). Continuar enviando as cegas so pioraria a
+    // situacao (mensagens ficariam presas na fila de saida sem o admin
+    // perceber) — pausa o job e avisa, em vez de seguir "no escuro".
+    if (whatsapp.name === 'baileys' && getBaileysStatus() !== 'connected') {
+      await prisma.dispatchJob.update({ where: { id: jobId }, data: { status: 'PAUSED' } });
+      await notifyDispatchPaused(job.eventId, job.id);
+      console.log(`[dispatch-worker] job ${jobId} pausado: WhatsApp (Baileys) desconectado`);
       return;
     }
 
@@ -119,7 +132,13 @@ async function processJob(jobId: string) {
       ]);
     }
 
-    await sleep(intervalMsForRate(job.ratePerMinute));
+    sentInBatch += 1;
+    await sleep(jitteredIntervalMs(job.ratePerMinute));
+
+    if (shouldTakeCooldown(sentInBatch)) {
+      console.log(`[dispatch-worker] job ${jobId} pausa de resfriamento apos ${sentInBatch} envios`);
+      await sleep(cooldownMs());
+    }
   }
 }
 
@@ -133,6 +152,21 @@ async function notifyDispatchCompleted(eventId: string, dispatchJobId: string) {
       type: 'DISPATCH_COMPLETED',
       title: 'Disparo concluído',
       message: `O disparo de convites para "${event.name}" foi concluído.`,
+      payload: { dispatchJobId },
+    },
+  });
+}
+
+async function notifyDispatchPaused(eventId: string, dispatchJobId: string) {
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (!event) return;
+  await prisma.notification.create({
+    data: {
+      userId: event.ownerId,
+      eventId,
+      type: 'DISPATCH_PAUSED',
+      title: 'Disparo pausado — WhatsApp desconectado',
+      message: `O disparo de convites para "${event.name}" foi pausado automaticamente porque o WhatsApp desconectou. Reconecte e retome o disparo pelo painel.`,
       payload: { dispatchJobId },
     },
   });
