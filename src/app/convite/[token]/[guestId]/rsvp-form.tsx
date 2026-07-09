@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Plus, Trash2, CheckCircle2, XCircle } from 'lucide-react';
+import { Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { submitPublicRsvpAction } from '@/actions/public-rsvp.actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,10 +27,6 @@ export function RsvpForm({
     guest.companions.map((c) => ({ name: c.name, age: c.age?.toString() ?? '' })),
   );
   const [result, setResult] = useState<string | null>(null);
-
-  function addCompanion() {
-    setCompanions((prev) => [...prev, { name: '', age: '' }]);
-  }
 
   function removeCompanion(index: number) {
     setCompanions((prev) => prev.filter((_, i) => i !== index));
@@ -95,9 +91,6 @@ export function RsvpForm({
                   </Button>
                 </div>
               ))}
-              <Button variant="outline" size="sm" onClick={addCompanion}>
-                <Plus className="h-4 w-4" /> Adicionar acompanhante
-              </Button>
             </div>
             <Button className="w-full" disabled={isPending} onClick={() => submit(true)}>
               {isPending ? 'Salvando...' : 'Salvar confirmação'}
