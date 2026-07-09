@@ -24,6 +24,7 @@ export async function listGuestsAction(params: {
   needsReview?: boolean;
   search?: string;
   page?: number;
+  pageSize?: number;
 }) {
   await requireSession();
   const useCase = new ListGuestsUseCase(container.guestRepository);
