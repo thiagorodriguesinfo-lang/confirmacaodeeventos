@@ -26,6 +26,9 @@ export default async function EventGuestsPage({
     status: (searchParams.status as GuestStatus) || undefined,
     search: searchParams.search,
     page,
+    // A tabela nao tem paginacao na UI (so rolagem) — traz todo mundo de
+    // uma vez, senao so os 25 primeiros (limite padrao) aparecem.
+    pageSize: 2000,
   });
 
   return (
