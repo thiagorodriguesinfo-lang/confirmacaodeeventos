@@ -55,6 +55,7 @@ export function StaffGuestCard({
             initialStatus={guest.status}
             initialCompanions={guest.companions}
             triggerLabel={guest.status === 'CONFIRMED' || guest.status === 'DECLINED' ? 'Editar' : 'Confirmar'}
+            showCompanions={false}
             onSubmit={(input) => manuallyConfirmGuestViaStaffTokenAction(staffToken, guest.id, input)}
           />
           <Button variant="ghost" size="icon" disabled={isPending} onClick={handleDelete} aria-label="Remover convidado">

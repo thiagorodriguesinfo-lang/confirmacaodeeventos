@@ -11,6 +11,14 @@ export type ManualGuestSchema = z.infer<typeof manualGuestSchema>;
 export const editGuestSchema = z.object({
   name: z.string().min(2, 'Informe o nome'),
   phone: z.string().min(8, 'Informe um telefone valido'),
+  companions: z
+    .array(
+      z.object({
+        name: z.string().min(1, 'Informe o nome do acompanhante'),
+        age: z.coerce.number().int().min(0).max(120).optional(),
+      }),
+    )
+    .optional(),
 });
 
 export const dispatchGuestsSchema = z.object({
@@ -23,6 +31,9 @@ export const dispatchGuestsSchema = z.object({
 export const manualConfirmationSchema = z.object({
   confirmed: z.boolean(),
   notifyWhatsapp: z.boolean().default(true),
+  // Ausente = nao mexe nos acompanhantes ja cadastrados (usado pela pagina
+  // da equipe, que so confirma/recusa e gerencia acompanhantes na aba de
+  // Convidados). Presente (mesmo vazio) = substitui a lista.
   companions: z
     .array(
       z.object({
@@ -30,7 +41,7 @@ export const manualConfirmationSchema = z.object({
         age: z.coerce.number().int().min(0).max(120).optional(),
       }),
     )
-    .default([]),
+    .optional(),
 });
 
 export const publicRsvpSchema = z.object({

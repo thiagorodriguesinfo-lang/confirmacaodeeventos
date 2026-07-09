@@ -41,7 +41,13 @@ export function GuestRowActions({
   return (
     <div className="flex items-center justify-end gap-1">
       <ManualConfirmDialog guestId={guestId} eventId={eventId} guestName={guestName} initialStatus={status} initialCompanions={companions} />
-      <EditGuestDialog guestId={guestId} eventId={eventId} initialName={guestName} initialPhone={guestPhone} />
+      <EditGuestDialog
+        guestId={guestId}
+        eventId={eventId}
+        initialName={guestName}
+        initialPhone={guestPhone}
+        initialCompanions={companions}
+      />
       <Button variant="ghost" size="icon" disabled={isSending} onClick={handleSendInvitation} aria-label="Enviar convite">
         <Send className="h-4 w-4" />
       </Button>

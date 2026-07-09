@@ -15,7 +15,7 @@ interface CompanionInput {
 export interface ConfirmationSubmitInput {
   confirmed: boolean;
   notifyWhatsapp: boolean;
-  companions: { name: string; age?: number }[];
+  companions?: { name: string; age?: number }[];
 }
 
 /**
@@ -30,6 +30,7 @@ export function ConfirmationDialog({
   initialStatus,
   initialCompanions,
   triggerLabel,
+  showCompanions = true,
   onSubmit,
 }: {
   guestName: string;
@@ -37,6 +38,8 @@ export function ConfirmationDialog({
   initialCompanions: { name: string; age: number | null }[];
   /** Rótulo do botão que abre o diálogo. Se omitido, usa apenas o ícone de check. */
   triggerLabel?: string;
+  /** false = não mostra nem envia acompanhantes (ex: página da equipe, que agora gerencia isso na aba de Convidados). */
+  showCompanions?: boolean;
   onSubmit: (input: ConfirmationSubmitInput) => Promise<{ success: boolean; message: string }>;
 }) {
   const [open, setOpen] = useState(false);
@@ -66,11 +69,15 @@ export function ConfirmationDialog({
       const result = await onSubmit({
         confirmed,
         notifyWhatsapp,
-        companions: confirmed
-          ? companions
-              .filter((c) => c.name.trim())
-              .map((c) => ({ name: c.name.trim(), age: c.age ? Number(c.age) : undefined }))
-          : [],
+        ...(showCompanions
+          ? {
+              companions: confirmed
+                ? companions
+                    .filter((c) => c.name.trim())
+                    .map((c) => ({ name: c.name.trim(), age: c.age ? Number(c.age) : undefined }))
+                : [],
+            }
+          : {}),
       });
 
       if (result.success) {
@@ -119,7 +126,7 @@ export function ConfirmationDialog({
               </Button>
             </div>
 
-            {confirmed && (
+            {showCompanions && confirmed && (
               <div className="space-y-2">
                 <Label>Acompanhantes</Label>
                 {companions.map((c, i) => (
