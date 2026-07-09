@@ -76,7 +76,7 @@ export async function updateGuestStatusAction(guestId: string, eventId: string, 
 export async function manuallyConfirmGuestAction(
   guestId: string,
   eventId: string,
-  input: { confirmed: boolean; notifyWhatsapp: boolean; companions: { name: string; age?: number }[] },
+  input: { confirmed: boolean; notifyWhatsapp: boolean; companions?: { name: string; age?: number }[] },
 ) {
   await requireSession();
 
@@ -95,7 +95,11 @@ export async function manuallyConfirmGuestAction(
   };
 }
 
-export async function updateGuestAction(guestId: string, eventId: string, input: { name: string; phone: string }) {
+export async function updateGuestAction(
+  guestId: string,
+  eventId: string,
+  input: { name: string; phone: string; companions?: { name: string; age?: number }[] },
+) {
   await requireSession();
 
   const parsed = editGuestSchema.safeParse(input);
@@ -113,7 +117,27 @@ export async function updateGuestAction(guestId: string, eventId: string, input:
     return { success: false, message: 'Já existe um convidado com esse telefone neste evento' };
   }
 
-  await container.guestRepository.update(guestId, { name: parsed.data.name, phone: normalizedPhone });
+  const { prisma } = await import('@/infrastructure/database/prisma');
+  const companions = parsed.data.companions;
+
+  await prisma.$transaction([
+    prisma.guest.update({
+      where: { id: guestId },
+      data: {
+        name: parsed.data.name,
+        phone: normalizedPhone,
+        ...(companions !== undefined ? { confirmedCount: 1 + companions.length } : {}),
+      },
+    }),
+    ...(companions !== undefined
+      ? [
+          prisma.companion.deleteMany({ where: { guestId } }),
+          ...(companions.length > 0
+            ? [prisma.companion.createMany({ data: companions.map((c) => ({ guestId, name: c.name, age: c.age ?? null })) })]
+            : []),
+        ]
+      : []),
+  ]);
 
   revalidatePath(`/dashboard/events/${eventId}/guests`);
   return { success: true, message: 'Convidado atualizado com sucesso' };

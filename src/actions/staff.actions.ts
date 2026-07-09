@@ -85,7 +85,7 @@ export async function deleteGuestViaStaffTokenAction(staffToken: string, guestId
 export async function manuallyConfirmGuestViaStaffTokenAction(
   staffToken: string,
   guestId: string,
-  input: { confirmed: boolean; notifyWhatsapp: boolean; companions: { name: string; age?: number }[] },
+  input: { confirmed: boolean; notifyWhatsapp: boolean; companions?: { name: string; age?: number }[] },
 ) {
   const event = await requireEventByStaffToken(staffToken);
 

@@ -5,7 +5,8 @@ import { getWhatsappProvider } from '@/infrastructure/whatsapp/whatsapp-provider
 export interface ManuallyConfirmGuestInput {
   guestId: string;
   confirmed: boolean;
-  companions: { name: string; age?: number }[];
+  /** Ausente = nao mexe nos acompanhantes ja cadastrados (ex: pagina da equipe, que so confirma/recusa). */
+  companions?: { name: string; age?: number }[];
   notifyWhatsapp: boolean;
 }
 
@@ -29,13 +30,27 @@ export class ManuallyConfirmGuestUseCase {
       maps: guest.event.googleMapsUrl ?? '',
     };
 
+    const companionOps =
+      input.companions !== undefined
+        ? [
+            prisma.companion.deleteMany({ where: { guestId: guest.id } }),
+            ...(input.companions.length > 0
+              ? [
+                  prisma.companion.createMany({
+                    data: input.companions.map((c) => ({ guestId: guest.id, name: c.name, age: c.age ?? null })),
+                  }),
+                ]
+              : []),
+          ]
+        : [];
+
     if (!input.confirmed) {
       await prisma.$transaction([
         prisma.guest.update({
           where: { id: guest.id },
           data: { status: 'DECLINED', chatbotStep: 'DECLINED', respondedAt: new Date() },
         }),
-        prisma.companion.deleteMany({ where: { guestId: guest.id } }),
+        ...companionOps,
         prisma.timelineEvent.create({ data: { guestId: guest.id, type: 'DECLINED', payload: { source: 'manual_admin' } } }),
       ]);
 
@@ -43,21 +58,14 @@ export class ManuallyConfirmGuestUseCase {
       return { status: 'DECLINED' as const };
     }
 
-    const confirmedCount = 1 + input.companions.length;
+    const confirmedCount = input.companions !== undefined ? 1 + input.companions.length : guest.confirmedCount;
 
     await prisma.$transaction([
       prisma.guest.update({
         where: { id: guest.id },
         data: { status: 'CONFIRMED', chatbotStep: 'COMPLETED', confirmedCount, respondedAt: new Date() },
       }),
-      prisma.companion.deleteMany({ where: { guestId: guest.id } }),
-      ...(input.companions.length > 0
-        ? [
-            prisma.companion.createMany({
-              data: input.companions.map((c) => ({ guestId: guest.id, name: c.name, age: c.age ?? null })),
-            }),
-          ]
-        : []),
+      ...companionOps,
       prisma.timelineEvent.create({
         data: { guestId: guest.id, type: 'CONFIRMED', payload: { source: 'manual_admin', confirmedCount } },
       }),
