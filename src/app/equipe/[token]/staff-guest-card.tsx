@@ -8,6 +8,7 @@ import { GuestStatusBadge } from '@/components/dashboard/guest-status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatPhone } from '@/lib/utils';
+import { StaffCompanionsDialog } from './staff-companions-dialog';
 
 export function StaffGuestCard({
   staffToken,
@@ -57,6 +58,12 @@ export function StaffGuestCard({
             triggerLabel={guest.status === 'CONFIRMED' || guest.status === 'DECLINED' ? 'Editar' : 'Confirmar'}
             showCompanions={false}
             onSubmit={(input) => manuallyConfirmGuestViaStaffTokenAction(staffToken, guest.id, input)}
+          />
+          <StaffCompanionsDialog
+            staffToken={staffToken}
+            guestId={guest.id}
+            guestName={guest.name}
+            initialCompanions={guest.companions}
           />
           <Button variant="ghost" size="icon" disabled={isPending} onClick={handleDelete} aria-label="Remover convidado">
             <Trash2 className="h-4 w-4 text-destructive" />
