@@ -8,17 +8,17 @@ export const manualGuestSchema = z.object({
 
 export type ManualGuestSchema = z.infer<typeof manualGuestSchema>;
 
+const companionInputSchema = z.object({
+  name: z.string().min(1, 'Informe o nome do acompanhante'),
+  age: z.coerce.number().int().min(0).max(120).optional(),
+});
+
+export const companionsSchema = z.array(companionInputSchema);
+
 export const editGuestSchema = z.object({
   name: z.string().min(2, 'Informe o nome'),
   phone: z.string().min(8, 'Informe um telefone valido'),
-  companions: z
-    .array(
-      z.object({
-        name: z.string().min(1, 'Informe o nome do acompanhante'),
-        age: z.coerce.number().int().min(0).max(120).optional(),
-      }),
-    )
-    .optional(),
+  companions: companionsSchema.optional(),
 });
 
 export const dispatchGuestsSchema = z.object({
@@ -32,16 +32,9 @@ export const manualConfirmationSchema = z.object({
   confirmed: z.boolean(),
   notifyWhatsapp: z.boolean().default(true),
   // Ausente = nao mexe nos acompanhantes ja cadastrados (usado pela pagina
-  // da equipe, que so confirma/recusa e gerencia acompanhantes na aba de
-  // Convidados). Presente (mesmo vazio) = substitui a lista.
-  companions: z
-    .array(
-      z.object({
-        name: z.string().min(1, 'Informe o nome do acompanhante'),
-        age: z.coerce.number().int().min(0).max(120).optional(),
-      }),
-    )
-    .optional(),
+  // da equipe, que so confirma/recusa e gerencia acompanhantes separadamente).
+  // Presente (mesmo vazio) = substitui a lista.
+  companions: companionsSchema.optional(),
 });
 
 export const publicRsvpSchema = z.object({
@@ -49,12 +42,5 @@ export const publicRsvpSchema = z.object({
   name: z.string().min(2),
   phone: z.string().min(8),
   confirmed: z.boolean(),
-  companions: z
-    .array(
-      z.object({
-        name: z.string().min(1),
-        age: z.coerce.number().int().min(0).max(120).optional(),
-      }),
-    )
-    .default([]),
+  companions: companionsSchema.default([]),
 });

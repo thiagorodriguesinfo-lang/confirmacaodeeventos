@@ -5,7 +5,7 @@ import { prisma } from '@/infrastructure/database/prisma';
 import { container } from '@/infrastructure/container';
 import { ListGuestsUseCase } from '@/core/use-cases/guests/list-guests.use-case';
 import { ManuallyConfirmGuestUseCase } from '@/core/use-cases/guests/manually-confirm-guest.use-case';
-import { manualGuestSchema, manualConfirmationSchema } from '@/lib/validations/guest.schema';
+import { manualGuestSchema, manualConfirmationSchema, companionsSchema } from '@/lib/validations/guest.schema';
 import { normalizePhone } from '@/core/services/phone-normalizer.service';
 
 /**
@@ -80,6 +80,35 @@ export async function deleteGuestViaStaffTokenAction(staffToken: string, guestId
 
   revalidatePath(`/equipe/${staffToken}`);
   return { success: true, message: 'Convidado removido' };
+}
+
+export async function updateGuestCompanionsViaStaffTokenAction(
+  staffToken: string,
+  guestId: string,
+  companions: { name: string; age?: number }[],
+) {
+  const event = await requireEventByStaffToken(staffToken);
+
+  const guest = await container.guestRepository.findById(guestId);
+  if (!guest || guest.eventId !== event.id) {
+    return { success: false, message: 'Convidado não encontrado neste evento' };
+  }
+
+  const parsed = companionsSchema.safeParse(companions);
+  if (!parsed.success) {
+    return { success: false, message: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
+  }
+
+  await prisma.$transaction([
+    prisma.guest.update({ where: { id: guestId }, data: { confirmedCount: 1 + parsed.data.length } }),
+    prisma.companion.deleteMany({ where: { guestId } }),
+    ...(parsed.data.length > 0
+      ? [prisma.companion.createMany({ data: parsed.data.map((c) => ({ guestId, name: c.name, age: c.age ?? null })) })]
+      : []),
+  ]);
+
+  revalidatePath(`/equipe/${staffToken}`);
+  return { success: true, message: 'Acompanhantes atualizados' };
 }
 
 export async function manuallyConfirmGuestViaStaffTokenAction(
