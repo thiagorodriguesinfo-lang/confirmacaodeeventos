@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { container } from '@/infrastructure/container';
 import { SettingsForm } from './settings-form';
 import { StaffLinkCard } from './staff-link-card';
+import { GenericRsvpLinkCard } from './generic-rsvp-link-card';
 
 export default async function EventSettingsPage({ params }: { params: { id: string } }) {
   const event = await container.eventRepository.findById(params.id);
@@ -14,6 +15,7 @@ export default async function EventSettingsPage({ params }: { params: { id: stri
         <p className="text-sm text-muted-foreground">Atualize dados e mensagens automáticas</p>
       </div>
       <StaffLinkCard eventId={event.id} staffToken={event.staffToken} />
+      <GenericRsvpLinkCard publicToken={event.publicToken} />
       <SettingsForm event={event} />
     </div>
   );
