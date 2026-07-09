@@ -2,9 +2,10 @@ import { prisma } from '@/infrastructure/database/prisma';
 import { BaileysProvider } from './baileys.provider';
 import { EvolutionApiProvider } from './evolution-api.provider';
 import { MetaCloudApiProvider } from './meta-cloud-api.provider';
+import { TwilioWhatsappProvider } from './twilio-whatsapp.provider';
 import type { WhatsappProvider } from './whatsapp-provider.interface';
 
-export type WhatsappProviderName = 'meta_cloud_api' | 'evolution_api' | 'baileys';
+export type WhatsappProviderName = 'meta_cloud_api' | 'evolution_api' | 'baileys' | 'twilio';
 
 let testOverride: WhatsappProvider | null = null;
 
@@ -49,6 +50,14 @@ export async function getWhatsappProvider(): Promise<WhatsappProvider> {
       apiKey: settings?.evolutionApiKey || requireEnv('EVOLUTION_API_KEY'),
       instanceName: settings?.evolutionInstanceName || requireEnv('EVOLUTION_INSTANCE_NAME'),
       webhookSecret: settings?.evolutionWebhookSecret || process.env.EVOLUTION_WEBHOOK_SECRET,
+    });
+  }
+
+  if (providerName === 'twilio') {
+    return new TwilioWhatsappProvider({
+      accountSid: settings?.twilioAccountSid || requireEnv('TWILIO_ACCOUNT_SID'),
+      authToken: settings?.twilioAuthToken || requireEnv('TWILIO_AUTH_TOKEN'),
+      whatsappNumber: settings?.twilioWhatsappNumber || requireEnv('TWILIO_WHATSAPP_NUMBER'),
     });
   }
 
