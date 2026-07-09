@@ -42,6 +42,9 @@ export async function saveWhatsappSettingsAction(formData: FormData) {
     evolutionApiKey: formData.get('evolutionApiKey') || undefined,
     evolutionInstanceName: formData.get('evolutionInstanceName') || undefined,
     evolutionWebhookSecret: formData.get('evolutionWebhookSecret') || undefined,
+    twilioAccountSid: formData.get('twilioAccountSid') || undefined,
+    twilioAuthToken: formData.get('twilioAuthToken') || undefined,
+    twilioWhatsappNumber: formData.get('twilioWhatsappNumber') || undefined,
   });
 
   if (!parsed.success) {
@@ -65,6 +68,9 @@ export async function saveWhatsappSettingsAction(formData: FormData) {
       evolutionApiKey: data.evolutionApiKey,
       evolutionInstanceName: data.evolutionInstanceName,
       evolutionWebhookSecret: data.evolutionWebhookSecret,
+      twilioAccountSid: data.twilioAccountSid,
+      twilioAuthToken: data.twilioAuthToken,
+      twilioWhatsappNumber: data.twilioWhatsappNumber,
       updatedById: session.user.id,
     },
     update: {
@@ -79,6 +85,9 @@ export async function saveWhatsappSettingsAction(formData: FormData) {
       evolutionApiKey: data.evolutionApiKey,
       evolutionInstanceName: data.evolutionInstanceName,
       evolutionWebhookSecret: data.evolutionWebhookSecret,
+      twilioAccountSid: data.twilioAccountSid,
+      twilioAuthToken: data.twilioAuthToken,
+      twilioWhatsappNumber: data.twilioWhatsappNumber,
       updatedById: session.user.id,
       // Configuracao mudou — o status de conexao anterior deixa de ser valido.
       connectionStatus: 'disconnected',

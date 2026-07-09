@@ -33,6 +33,7 @@ export function WhatsappSettingsForm({ settings }: { settings: WhatsappSettings 
           <option value="baileys">WhatsApp embutido / grátis (via QR Code) — recomendado</option>
           <option value="evolution_api">Evolution API (self-hosted, via QR Code)</option>
           <option value="meta_cloud_api">WhatsApp Cloud API (Meta)</option>
+          <option value="twilio">Twilio (WhatsApp API oficial)</option>
         </select>
       </div>
 
@@ -90,6 +91,35 @@ export function WhatsappSettingsForm({ settings }: { settings: WhatsappSettings 
             <Label>Versão da Graph API</Label>
             <Input name="metaGraphApiVersion" placeholder="v21.0" defaultValue={settings?.metaGraphApiVersion ?? 'v21.0'} />
           </div>
+        </div>
+      )}
+
+      {provider === 'twilio' && (
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label>Account SID</Label>
+              <Input name="twilioAccountSid" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" defaultValue={settings?.twilioAccountSid ?? ''} />
+            </div>
+            <div className="space-y-1">
+              <Label>Auth Token</Label>
+              <Input name="twilioAuthToken" type="password" defaultValue={settings?.twilioAuthToken ?? ''} />
+            </div>
+            <div className="space-y-1">
+              <Label>Número de WhatsApp</Label>
+              <Input
+                name="twilioWhatsappNumber"
+                placeholder="+14155238886 (sandbox) ou o número aprovado"
+                defaultValue={settings?.twilioWhatsappNumber ?? ''}
+              />
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            No Console da Twilio, configure o webhook &quot;When a message comes in&quot; (Sandbox) ou do seu WhatsApp Sender
+            (produção) para <code className="rounded bg-muted px-1 py-0.5">{`${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/webhooks/twilio`}</code>.
+            No modo Sandbox, cada convidado precisa enviar o código &quot;join ...&quot; para o número da Twilio antes de
+            poder receber mensagens.
+          </p>
         </div>
       )}
 
