@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 export function StaffAddGuestForm({ staffToken }: { staffToken: string }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ message: string; success: boolean } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   if (!open) {
@@ -26,7 +26,7 @@ export function StaffAddGuestForm({ staffToken }: { staffToken: string }) {
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
       const result = await createGuestViaStaffTokenAction(staffToken, formData);
-      setFeedback(result.message);
+      setFeedback({ message: result.message, success: result.success });
       if (result.success) formRef.current?.reset();
     });
   }
@@ -53,7 +53,11 @@ export function StaffAddGuestForm({ staffToken }: { staffToken: string }) {
             {isPending ? 'Salvando...' : 'Salvar convidado'}
           </Button>
         </form>
-        {feedback && <p className="text-sm text-muted-foreground">{feedback}</p>}
+        {feedback && (
+          <p className={`text-sm ${feedback.success ? 'text-muted-foreground' : 'font-medium text-destructive'}`}>
+            {feedback.message}
+          </p>
+        )}
       </CardContent>
     </Card>
   );

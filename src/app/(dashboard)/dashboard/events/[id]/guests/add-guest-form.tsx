@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 export function AddGuestForm({ eventId }: { eventId: string }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ message: string; success: boolean } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   if (!open) {
@@ -25,7 +25,7 @@ export function AddGuestForm({ eventId }: { eventId: string }) {
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
       const result = await createManualGuestAction(eventId, formData);
-      setFeedback(result.message);
+      setFeedback({ message: result.message, success: result.success });
       if (result.success) formRef.current?.reset();
     });
   }
@@ -49,7 +49,11 @@ export function AddGuestForm({ eventId }: { eventId: string }) {
             Cancelar
           </Button>
         </form>
-        {feedback && <p className="mt-2 text-sm text-muted-foreground">{feedback}</p>}
+        {feedback && (
+          <p className={`mt-2 text-sm ${feedback.success ? 'text-muted-foreground' : 'font-medium text-destructive'}`}>
+            {feedback.message}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
