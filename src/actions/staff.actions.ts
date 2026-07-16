@@ -30,7 +30,9 @@ export async function getEventByStaffTokenAction(staffToken: string) {
 export async function listGuestsByStaffTokenAction(staffToken: string, params: { search?: string; page?: number }) {
   const event = await requireEventByStaffToken(staffToken);
   const useCase = new ListGuestsUseCase(container.guestRepository);
-  return useCase.execute({ eventId: event.id, search: params.search, page: params.page });
+  // A tela da equipe nao tem paginacao na UI (so rolagem) — traz todo mundo
+  // de uma vez, senao so os 25 primeiros (limite padrao) aparecem.
+  return useCase.execute({ eventId: event.id, search: params.search, page: params.page, pageSize: 2000 });
 }
 
 export async function createGuestViaStaffTokenAction(staffToken: string, formData: FormData) {
