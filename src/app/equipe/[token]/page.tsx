@@ -1,7 +1,10 @@
 import { notFound } from 'next/navigation';
+import type { GuestStatus } from '@prisma/client';
 import { container } from '@/infrastructure/container';
 import { listGuestsByStaffTokenAction } from '@/actions/staff.actions';
 import { StaffSearch } from './staff-search';
+import { StaffStatusFilter } from './staff-status-filter';
+import { StaffExportPdfButton } from './staff-export-pdf-button';
 import { StaffAddGuestForm } from './staff-add-guest-form';
 import { StaffGuestCard } from './staff-guest-card';
 
@@ -10,13 +13,19 @@ export default async function StaffPage({
   searchParams,
 }: {
   params: { token: string };
-  searchParams: { search?: string; page?: string };
+  searchParams: { search?: string; page?: string; status?: string | string[] };
 }) {
   const event = await container.eventRepository.findByStaffToken(params.token);
   if (!event) notFound();
 
   const page = Number(searchParams.page) || 1;
-  const { items, total } = await listGuestsByStaffTokenAction(params.token, { search: searchParams.search, page });
+  const { items: allItems } = await listGuestsByStaffTokenAction(params.token, { search: searchParams.search, page });
+
+  const statuses = searchParams.status
+    ? ((Array.isArray(searchParams.status) ? searchParams.status : [searchParams.status]) as GuestStatus[])
+    : [];
+  const items = statuses.length > 0 ? allItems.filter((guest) => statuses.includes(guest.status)) : allItems;
+  const total = items.length;
 
   return (
     <div className="mx-auto max-w-lg space-y-4 p-4 pb-16">
@@ -32,7 +41,12 @@ export default async function StaffPage({
 
       <StaffSearch />
 
-      <p className="text-sm text-muted-foreground">{total} convidado(s)</p>
+      <StaffStatusFilter />
+
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">{total} convidado(s)</p>
+        <StaffExportPdfButton staffToken={params.token} />
+      </div>
 
       <div className="space-y-3">
         {items.map((guest) => (

@@ -10,6 +10,10 @@ export interface ExportGuestsInput {
   eventId: string;
   format: ExportFormat;
   order: ExportOrder;
+  /** Se informado, exporta so esses convidados (ex: lista ja filtrada por status/busca). */
+  guestIds?: string[];
+  /** Sobrescreve o titulo padrao do PDF (baseado em `order`). */
+  titleOverride?: string;
 }
 
 type GuestWithCompanions = Guest & { companions: Companion[] };
@@ -26,7 +30,7 @@ export class ExportGuestsUseCase {
   async execute(input: ExportGuestsInput): Promise<{ buffer: Buffer; contentType: string; fileName: string }> {
     const event = await prisma.event.findUniqueOrThrow({ where: { id: input.eventId } });
     const guests = await prisma.guest.findMany({
-      where: { eventId: input.eventId },
+      where: { eventId: input.eventId, ...(input.guestIds ? { id: { in: input.guestIds } } : {}) },
       include: { companions: true },
     });
 
@@ -37,7 +41,9 @@ export class ExportGuestsUseCase {
       return { buffer: this.toCsv(rows), contentType: 'text/csv; charset=utf-8', fileName: `${baseFileName}.csv` };
     }
     if (input.format === 'pdf') {
-      const title = input.order === 'buffet' ? `Lista de confirmados — ${event.name}` : `Lista de convidados — ${event.name}`;
+      const title =
+        input.titleOverride ??
+        (input.order === 'buffet' ? `Lista de confirmados — ${event.name}` : `Lista de convidados — ${event.name}`);
       return { buffer: await this.toPdf(title, rows), contentType: 'application/pdf', fileName: `${baseFileName}.pdf` };
     }
     return { buffer: await this.toXlsx(rows), contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', fileName: `${baseFileName}.xlsx` };
