@@ -1,18 +1,11 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
 import { FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-export function StaffExportPdfButton({ staffToken }: { staffToken: string }) {
-  const searchParams = useSearchParams();
-
-  const params = new URLSearchParams();
-  searchParams.getAll('status').forEach((status) => params.append('status', status));
-  const search = searchParams.get('search');
-  if (search) params.set('search', search);
-
-  const href = `/api/exports/staff/${staffToken}${params.toString() ? `?${params.toString()}` : ''}`;
+/** guestIds: IDs ja filtrados (status/busca) exatamente como exibidos na tela. */
+export function StaffExportPdfButton({ staffToken, guestIds }: { staffToken: string; guestIds: string[] }) {
+  const href = `/api/exports/staff/${staffToken}?guestIds=${guestIds.join(',')}`;
 
   return (
     <Button variant="outline" size="sm" asChild>

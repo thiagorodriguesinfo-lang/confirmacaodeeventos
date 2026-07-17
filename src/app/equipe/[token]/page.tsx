@@ -45,7 +45,7 @@ export default async function StaffPage({
 
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">{total} convidado(s)</p>
-        <StaffExportPdfButton staffToken={params.token} />
+        <StaffExportPdfButton staffToken={params.token} guestIds={items.map((guest) => guest.id)} />
       </div>
 
       <div className="space-y-3">
